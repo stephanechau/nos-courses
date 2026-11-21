@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Item, Member, NewItem, NotificationPrefs } from './data/types';
 import type { Backend } from './data/backend';
-import { guessRayon } from './data/rayons';
+import { guessRayon, RAYONS } from './data/rayons';
 import { listenOnce, parseSpoken, speechAvailable } from './data/speech';
 import { ListScreen } from './components/ListScreen';
 import { AddSheet } from './components/AddSheet';
 import { Settings } from './components/Settings';
+import { CarrefourWalk } from './components/CarrefourWalk';
+import { openCarrefour } from './data/carrefour';
 import { Login } from './components/Login';
 import { VoiceSetup } from './components/VoiceSetup';
 
-type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' };
+type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] };
 
 const PUSH_DISMISSED = 'nos-courses:push-banner-masque';
 
@@ -23,6 +25,7 @@ export default function App({ backend }: { backend: Backend }) {
   const [toast, setToast] = useState('');
   const [familyCode, setFamilyCode] = useState<string>();
   const [pushOff, setPushOff] = useState(false);
+  const [searched, setSearched] = useState<Set<string>>(() => new Set());
   const [pushDismissed, setPushDismissed] = useState(() => {
     try {
       return localStorage.getItem(PUSH_DISMISSED) === '1';
@@ -108,6 +111,16 @@ export default function App({ backend }: { backend: Backend }) {
   if (me === undefined) return null;
   if (me === null) return <Login backend={backend} />;
 
+  if (view.kind === 'carrefour')
+    return (
+      <CarrefourWalk
+        items={view.items}
+        members={members}
+        onInBasket={(it) => backend.store.setDone(it.id, true, me.id).catch(() => say('Impossible de cocher cet article.'))}
+        onClose={() => setView({ kind: 'list' })}
+      />
+    );
+
   if (view.kind === 'voice') return <VoiceSetup backend={backend} onBack={() => setView({ kind: 'settings' })} />;
 
   if (view.kind === 'settings') {
@@ -182,6 +195,16 @@ export default function App({ backend }: { backend: Backend }) {
         onClearDone={() => backend.store.clearDone()}
         onSettings={() => setView({ kind: 'settings' })}
         showPushBanner={pushOff && !pushDismissed}
+        searched={searched}
+        onCarrefour={(it) => {
+          openCarrefour(it.name);
+          setSearched((s) => new Set(s).add(it.id));
+        }}
+        onCarrefourAll={() => {
+          const order = (id: string) => RAYONS.findIndex((r) => r.id === id);
+          const todo = items.filter((i) => !i.done).sort((a, b) => order(a.rayon) - order(b.rayon) || a.createdAt - b.createdAt);
+          setView({ kind: 'carrefour', items: todo });
+        }}
         onEnablePush={() => {
           const p = { ...prefs, onAdd: true };
           setPrefs(p);

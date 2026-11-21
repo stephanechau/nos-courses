@@ -1,6 +1,6 @@
 import type { Item, Member } from '../data/types';
 import { RAYONS } from '../data/rayons';
-import { BasketIcon, BellIcon, CheckIcon, CloseIcon, MicIcon, PathIcon, PlusIcon } from './Icons';
+import { BasketIcon, BellIcon, CartIcon, CheckIcon, CloseIcon, MicIcon, PathIcon, PlusIcon } from './Icons';
 
 interface Props {
   me: Member;
@@ -14,6 +14,10 @@ interface Props {
   onClearDone: () => void;
   onSettings: () => void;
   showPushBanner: boolean;
+  /** Articles déjà cherchés sur Carrefour (le chariot devient blanc). */
+  searched: Set<string>;
+  onCarrefour: (item: Item) => void;
+  onCarrefourAll: () => void;
   onEnablePush: () => void;
   onDismissPush: () => void;
 }
@@ -84,6 +88,12 @@ export function ListScreen(p: Props) {
             </button>
           </div>
         )}
+        {todo.length > 0 && (
+          <button className="secondary accent carrefour-all" onClick={p.onCarrefourAll}>
+            <CartIcon size={20} />
+            Tout chercher sur Carrefour
+          </button>
+        )}
         {p.items.length === 0 && (
           <p className="empty">
             <strong>La liste est vide</strong>
@@ -116,6 +126,13 @@ export function ListScreen(p: Props) {
                     {it.note && <span className="row-note">{it.note}</span>}
                   </button>
                   <span className="row-side">
+                    <button
+                      className={`cart-btn${p.searched.has(it.id) ? ' seen' : ''}`}
+                      aria-label={`Chercher ${it.name} sur Carrefour`}
+                      onClick={() => p.onCarrefour(it)}
+                    >
+                      <CartIcon />
+                    </button>
                     {it.voice && (
                       <span className="voice-badge" role="img" aria-label="Ajouté à la voix">
                         <MicIcon size={14} color="var(--accent)" width={2.4} />

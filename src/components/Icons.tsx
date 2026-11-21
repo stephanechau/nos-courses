@@ -56,3 +56,11 @@ export const PathIcon = ({ d, size = 20, color, width = 2 }: P & { d: string; co
     <path d={d} />
   </svg>
 );
+
+export const CartIcon = ({ size = 18, color = '#0B5453', width = 2.2 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="9" cy="20" r="1.4" />
+    <circle cx="18" cy="20" r="1.4" />
+    <path d="M2 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.8a1.5 1.5 0 0 0 1.5-1.2L21 7H6" />
+  </svg>
+);
