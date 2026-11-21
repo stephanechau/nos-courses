@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Item, Member, NewItem, NotificationPrefs } from './data/types';
 import type { Backend } from './data/backend';
-import { guessRayon, RAYONS } from './data/rayons';
+import { LISTS, type ListId } from './data/lists';
 import { listenOnce, parseSpoken, speechAvailable } from './data/speech';
 import { ListScreen } from './components/ListScreen';
 import { AddSheet } from './components/AddSheet';
@@ -24,6 +24,8 @@ export default function App({ backend }: { backend: Backend }) {
   const [me, setMe] = useState<Member | null | undefined>(undefined); // undefined = chargement
   const [members, setMembers] = useState<Member[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [chinoisItems, setChinoisItems] = useState<Item[]>([]);
+  const [chinoisMissing, setChinoisMissing] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs>({ onAdd: true, grouped: true, quietNight: true, onShopping: false });
   const [view, setView] = useState<View>({ kind: 'list' });
   const [listening, setListening] = useState(false);
@@ -32,7 +34,8 @@ export default function App({ backend }: { backend: Backend }) {
   const [pushOff, setPushOff] = useState(false);
   const [tab, setTabState] = useState<Tab>(() => {
     try {
-      return localStorage.getItem(TAB_KEY) === 'cave' ? 'cave' : 'courses';
+      const t = localStorage.getItem(TAB_KEY);
+      return t === 'cave' || t === 'chinois' ? t : 'courses';
     } catch {
       return 'courses';
     }
@@ -48,7 +51,6 @@ export default function App({ backend }: { backend: Backend }) {
   };
   const [stock, setStock] = useState<StockItem[]>([]);
   const [caveMissing, setCaveMissing] = useState(false);
-  const [searched, setSearched] = useState<Set<string>>(() => new Set());
   const [pushDismissed, setPushDismissed] = useState(() => {
     try {
       return localStorage.getItem(PUSH_DISMISSED) === '1';
@@ -70,6 +72,13 @@ export default function App({ backend }: { backend: Backend }) {
   useEffect(() => {
     if (!me) return;
     const offItems = backend.store.subscribe(setItems);
+    const offChinois = backend.chinois.subscribe(
+      (i) => {
+        setChinoisMissing(false);
+        setChinoisItems(i);
+      },
+      () => setChinoisMissing(true)
+    );
     const offMembers = backend.onMembers(setMembers);
     const offCave = backend.cave.subscribe(
       (s) => {
@@ -86,15 +95,17 @@ export default function App({ backend }: { backend: Backend }) {
       .catch(() => {});
     return () => {
       offItems();
+      offChinois();
       offMembers();
       offCave();
     };
   }, [backend, me]);
 
   const addNames = useCallback(
-    async (names: string[], voice: boolean) => {
+    async (names: string[], voice: boolean, list: ListId = 'courses') => {
       if (!me || names.length === 0) return;
-      for (const name of names) await backend.store.add({ name, rayon: guessRayon(name), voice }, me.id);
+      const store = list === 'chinois' ? backend.chinois : backend.store;
+      for (const name of names) await store.add({ name, rayon: LISTS[list].guess(name), voice }, me.id);
       say(names.length === 1 ? `« ${names[0]} » ajouté` : `${names.length} articles ajoutés : ${names.join(', ')}`);
     },
     [backend, me, say]
@@ -128,7 +139,7 @@ export default function App({ backend }: { backend: Backend }) {
     }
   }, [say]);
 
-  const voice = useCallback(() => dictate((names) => addNames(names, true)), [dictate, addNames]);
+  const voice = useCallback((list: ListId = 'courses') => dictate((names) => addNames(names, true, list)), [dictate, addNames]);
 
   const storeInCave = useCallback(
     async (names: string[]) => {
@@ -267,11 +278,17 @@ export default function App({ backend }: { backend: Backend }) {
     );
   }
 
+  const listId: ListId = tab === 'chinois' ? 'chinois' : 'courses';
+  const kind = LISTS[listId];
+  const store = listId === 'chinois' ? backend.chinois : backend.store;
+  const listItems = listId === 'chinois' ? chinoisItems : items;
+  const oops = (e: unknown) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
+
   const save = async (data: NewItem) => {
     try {
-      if (view.kind === 'edit') await backend.store.update(view.item.id, data);
+      if (view.kind === 'edit') await store.update(view.item.id, data);
       else {
-        await backend.store.add(data, me.id);
+        await store.add(data, me.id);
         say(`« ${data.name} » ajouté`);
       }
       setView({ kind: 'list' });
@@ -283,31 +300,33 @@ export default function App({ backend }: { backend: Backend }) {
   return (
     <>
       <ListScreen
+        key={listId}
+        kind={kind}
+        missing={listId === 'chinois' && chinoisMissing}
         me={me}
         members={members}
-        items={items}
+        items={listItems}
         listening={listening}
-        onToggle={(it) => backend.store.setDone(it.id, !it.done, me.id).catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`))}
+        onToggle={(it) => store.setDone(it.id, !it.done, me.id).catch(oops)}
         onEdit={(item) => setView({ kind: 'edit', item })}
         onAdd={() => {
           setToast('');
           setView({ kind: 'add' });
         }}
-        onVoice={voice}
-        onClearDone={() => backend.store.clearDone().catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`))}
+        onVoice={() => voice(listId)}
+        onClearDone={() => store.clearDone().catch(oops)}
         onSettings={() => setView({ kind: 'settings' })}
         tabs={tabs}
         showPushBanner={pushOff && !pushDismissed}
-        searched={searched}
-        onCarrefour={(it) => {
-          openCarrefour(it.name);
-          setSearched((s) => new Set(s).add(it.id));
-        }}
-        onCarrefourAll={() => {
-          const order = (id: string) => RAYONS.findIndex((r) => r.id === id);
-          const todo = items.filter((i) => !i.done).sort((a, b) => order(a.rayon) - order(b.rayon) || a.createdAt - b.createdAt);
-          setView({ kind: 'carrefour', items: todo });
-        }}
+        onCarrefourAll={
+          kind.carrefour
+            ? () => {
+                const order = (id: string) => kind.rayons.findIndex((r) => r.id === id);
+                const todo = listItems.filter((i) => !i.done).sort((a, b) => order(a.rayon) - order(b.rayon) || a.createdAt - b.createdAt);
+                setView({ kind: 'carrefour', items: todo });
+              }
+            : undefined
+        }
         onEnablePush={() => {
           const p = { ...prefs, onAdd: true };
           setPrefs(p);
@@ -330,13 +349,15 @@ export default function App({ backend }: { backend: Backend }) {
       />
       {(view.kind === 'add' || view.kind === 'edit') && (
         <AddSheet
+          kind={kind}
           editing={view.kind === 'edit' ? view.item : undefined}
-          history={backend.store.history()}
+          onCarrefour={kind.carrefour ? openCarrefour : undefined}
+          history={store.history()}
           onSave={save}
           onDelete={
             view.kind === 'edit'
               ? async () => {
-                  await backend.store.remove(view.item.id).catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`));
+                  await store.remove(view.item.id).catch(oops);
                   setView({ kind: 'list' });
                 }
               : undefined

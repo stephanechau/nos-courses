@@ -1,7 +1,6 @@
 import type { Item, ListStore, NewItem } from './types';
 import { normalize } from './rayons';
 
-const KEY = 'nos-courses:items';
 const HISTORY_KEY = 'nos-courses:history';
 
 const read = <T,>(key: string, fallback: T): T => {
@@ -23,11 +22,11 @@ const write = (key: string, value: unknown) => {
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 /** Stockage local au navigateur, synchronisé entre onglets. Pour tester sans serveur. */
-export function createLocalStore(): ListStore {
+export function createLocalStore(KEY = 'nos-courses:items'): ListStore {
   let items: Item[] = read<Item[]>(KEY, []);
   let history: string[] = read<string[]>(HISTORY_KEY, []);
   const listeners = new Set<(items: Item[]) => void>();
-  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('nos-courses') : null;
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(KEY) : null;
 
   const emit = () => listeners.forEach((cb) => cb(items));
   const commit = (next: Item[]) => {

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { Item, Member } from '../data/types';
 import { RAYONS } from '../data/rayons';
 import { openCarrefour } from '../data/carrefour';
-import { CloseIcon, PathIcon } from './Icons';
+import { CloseIcon } from './Icons';
+import { emojiFor } from '../data/emoji';
 
 interface Props {
   /** Articles à prendre, dans l'ordre de la liste (figés au lancement). */
@@ -46,8 +47,8 @@ export function CarrefourWalk({ items, members, onInBasket, onClose }: Props) {
           <>
             <section className="walk-card">
               {rayon && (
-                <span className="tile big" style={{ background: rayon.tint }}>
-                  <PathIcon d={rayon.icon} color={rayon.ink} size={30} />
+                <span className="tile big" style={{ background: rayon.tint, fontSize: 32 }} aria-hidden="true">
+                  {emojiFor(cur.name, rayon.emoji)}
                 </span>
               )}
               <strong>{cur.name}</strong>

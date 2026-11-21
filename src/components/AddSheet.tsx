@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Item, NewItem } from '../data/types';
-import { RAYONS, guessRayon, normalize, type RayonId } from '../data/rayons';
+import { normalize } from '../data/rayons';
+import type { ListKind } from '../data/lists';
 import { listenOnce, speechAvailable } from '../data/speech';
-import { CloseIcon, MicIcon, PathIcon } from './Icons';
+import { CartIcon, CloseIcon, MicIcon } from './Icons';
 
 const UNITS = ['pièce', 'kg', 'g', 'L', 'paquet'];
 
 interface Props {
+  kind: ListKind;
   editing?: Item;
+  /** Ouvre la recherche Carrefour pour cet article (liste de courses seulement). */
+  onCarrefour?: (name: string) => void;
   history: string[];
   onSave: (item: NewItem) => void;
   onDelete?: () => void;
@@ -20,10 +24,10 @@ function splitQty(qty?: string): { n: number; unit: string } {
   return { n: Number(m[1]), unit: m[2] || 'pièce' };
 }
 
-export function AddSheet({ editing, history, onSave, onDelete, onClose }: Props) {
+export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete, onClose }: Props) {
   const init = splitQty(editing?.qty);
   const [name, setName] = useState(editing?.name ?? '');
-  const [rayon, setRayon] = useState<RayonId | null>(editing?.rayon ?? null); // null = automatique
+  const [rayon, setRayon] = useState<string | null>(editing?.rayon ?? null); // null = automatique
   const [n, setN] = useState(init.n);
   const [unit, setUnit] = useState(init.unit);
   const [note, setNote] = useState(editing?.note ?? '');
@@ -33,7 +37,7 @@ export function AddSheet({ editing, history, onSave, onDelete, onClose }: Props)
   useEffect(() => input.current?.focus(), []);
   const rayonsRef = useRef<HTMLDivElement>(null);
 
-  const autoRayon = guessRayon(name);
+  const autoRayon = kind.guess(name);
   const shownRayon = rayon ?? autoRayon;
   // Fait défiler la rangée jusqu'au rayon choisi.
   useEffect(() => {
@@ -119,7 +123,7 @@ export function AddSheet({ editing, history, onSave, onDelete, onClose }: Props)
               Rayon <small>{rayon ? 'choisi à la main' : 'choisi automatiquement'}</small>
             </p>
             <div className="rayons" role="group" aria-label="Rayon" ref={rayonsRef}>
-              {RAYONS.map((r) => {
+              {kind.rayons.map((r) => {
                 const on = r.id === shownRayon;
                 return (
                   <button
@@ -130,7 +134,7 @@ export function AddSheet({ editing, history, onSave, onDelete, onClose }: Props)
                     onClick={() => setRayon(r.id)}
                     style={on ? { background: r.ink, color: '#fff', borderColor: r.ink } : { background: r.tint, color: r.ink }}
                   >
-                    <PathIcon d={r.icon} size={18} color={on ? '#fff' : r.ink} />
+                    <span aria-hidden="true">{r.emoji}</span>
                     {r.label}
                   </button>
                 );
@@ -183,6 +187,12 @@ export function AddSheet({ editing, history, onSave, onDelete, onClose }: Props)
           <button type="submit" className="primary" disabled={!name.trim()}>
             {editing ? 'Enregistrer' : 'Ajouter à la liste'}
           </button>
+          {editing && onCarrefour && (
+            <button type="button" className="secondary accent carrefour-all" onClick={() => onCarrefour(name || editing.name)}>
+              <CartIcon size={20} />
+              Chercher sur Carrefour
+            </button>
+          )}
           {onDelete && (
             <button type="button" className="danger" onClick={onDelete}>
               Retirer de la liste

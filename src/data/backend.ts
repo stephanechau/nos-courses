@@ -5,6 +5,8 @@ import { createLocalCave, type CaveStore } from './cave';
 /** Ce que l'app attend du service en ligne (Supabase) ou du mode test local. */
 export interface Backend {
   store: ListStore;
+  /** La liste du magasin chinois. */
+  chinois: ListStore;
   /** Le stock de la cave. */
   cave: CaveStore;
   /** Appelé avec le membre connecté, ou null s'il faut se connecter. */
@@ -59,6 +61,7 @@ export function createLocalBackend(): Backend {
 
   return {
     store,
+    chinois: createLocalStore('nos-courses:chinois'),
     cave: createLocalCave(),
     onSession(cb) {
       sessionCbs.add(cb);

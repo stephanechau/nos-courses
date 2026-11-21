@@ -19,7 +19,7 @@ export default defineConfig({
         short_name: 'Courses',
         description: 'La liste de courses partagée de la famille',
         lang: 'fr',
-        theme_color: '#11706F',
+        theme_color: '#0E5F5E',
         background_color: '#EFF7F6',
         display: 'standalone',
         start_url: './',

@@ -36,24 +36,24 @@ export function CaveScreen(p: Props) {
   const sections = CAVE_CATS.map((c) => ({ c, items: p.items.filter((i) => i.category === c.id) })).filter((s) => s.items.length > 0);
 
   return (
-    <div className="app">
-      <header className="hero">
+    <div className="app bulles">
+      <header className="bhero">
         <div className="hero-top">
-          <span className="hero-hello">Bonjour {p.me.name}</span>
+          <span className="hero-hello">Hello {p.me.name} ✨</span>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div className="avatars">
               {p.members.map((m) => (
                 <Avatar key={m.id} m={m} />
               ))}
             </div>
-            <button className="icon-btn" aria-label="Réglages" onClick={p.onSettings}>
+            <button className="icon-btn glass" aria-label="Réglages" onClick={p.onSettings}>
               <BellIcon />
             </button>
           </div>
         </div>
-        <h1 className="sr-only">La cave</h1>
+        <h1>La cave 📦</h1>
         {p.tabs}
-        <div className="hero-stats">
+        <div className="bstats">
           <span>
             {total} produit{total > 1 ? 's' : ''} en stock
           </span>
@@ -79,15 +79,14 @@ export function CaveScreen(p: Props) {
         )}
 
         {sections.map(({ c, items }) => (
-          <section key={c.id} className="section" aria-labelledby={`c-${c.id}`}>
-            <div className="section-head">
-              <span className="tile" style={{ background: c.tint, fontSize: 19 }} aria-hidden="true">
-                {c.emoji}
-              </span>
-              <h2 id={`c-${c.id}`}>{c.label}</h2>
-              <span className="cave-count">{items.reduce((n, i) => n + i.qty, 0)} en stock</span>
+          <section key={c.id} className="bcard" aria-labelledby={`c-${c.id}`}>
+            <div className="bcard-head">
+              <h2 id={`c-${c.id}`}>
+                <span aria-hidden="true">{c.emoji}</span> {c.label}
+              </h2>
+              <span className="bcard-count">{items.reduce((n, i) => n + i.qty, 0)} en stock</span>
             </div>
-            <ul>
+            <ul className="cave-list">
               {items.map((it) => (
                 <li key={it.id} className="cave-row">
                   <div className="cave-line">

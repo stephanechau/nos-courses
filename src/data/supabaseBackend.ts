@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Backend } from './backend';
 import { DEFAULT_PREFS } from './backend';
 import type { Item, ListStore, Member, NewItem, NotificationPrefs } from './types';
-import type { RayonId } from './rayons';
+import type { ListId } from './lists';
 import { normalize } from './rayons';
 import { pushStatus, subscribePush, unsubscribePush } from './push';
 import type { CaveCat, CaveStore, StockItem } from './cave';
@@ -19,12 +19,13 @@ interface ItemRow {
   done: boolean;
   done_by: string | null;
   created_at: string;
+  list?: string;
 }
 
 const toItem = (r: ItemRow): Item => ({
   id: r.id,
   name: r.name,
-  rayon: r.rayon as RayonId,
+  rayon: r.rayon,
   qty: r.qty ?? undefined,
   note: r.note ?? undefined,
   addedBy: r.added_by ?? '',
@@ -101,86 +102,102 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const stockRefreshers = new Set<() => void>();
   const refreshStock = () => stockRefreshers.forEach((f) => f());
 
-  const store: ListStore = {
-    subscribe(cb) {
-      let items: Item[] = [];
-      const refresh = async () => {
-        const { data } = await sb.from('items').select('*').order('created_at');
-        items = (data ?? []).map(toItem);
-        remember(items.map((i) => i.name));
-        cb(items);
-      };
-      refresh();
-      const channel = sb
-        .channel('items')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `family_id=eq.${familyId}` }, refresh)
-        // Les suppressions ne passent pas par le filtre famille : on les écoute à part.
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'items' }, refresh)
-        .subscribe();
-      itemRefreshers.add(refresh);
-      // Rattrapage quand l'app revient au premier plan (le temps réel peut être coupé en veille).
-      const onVisible = () => document.visibilityState === 'visible' && refresh();
-      document.addEventListener('visibilitychange', onVisible);
-      return () => {
-        itemRefreshers.delete(refresh);
-        sb.removeChannel(channel);
-        document.removeEventListener('visibilitychange', onVisible);
-      };
-    },
-    async add(input: NewItem, by: string) {
-      const name = input.name.trim();
-      if (!name) return;
-      if (!familyId) throw new Error('famille introuvable, rechargez la page');
-      remember([name]);
-      const { data: existing, error: readError } = await sb.from('items').select('id, name').eq('done', false);
-      if (readError) throw new Error(readError.message);
-      const dup = existing?.find((i) => normalize(i.name) === normalize(name));
-      if (dup) {
-        const patch: Record<string, string> = {};
-        if (input.qty) patch.qty = input.qty;
-        if (input.note) patch.note = input.note;
-        if (Object.keys(patch).length) await sb.from('items').update(patch).eq('id', dup.id);
+  const makeStore = (list: ListId): ListStore => {
+    // Avant l'installation du magasin chinois, la colonne « list » n'existe pas : tout est « courses ».
+    const inList = (r: ItemRow) => (r.list ?? 'courses') === list;
+    return {
+      subscribe(cb, onMissing) {
+        let items: Item[] = [];
+        const refresh = async () => {
+          if (list !== 'courses') {
+            const { error: probe } = await sb.from('items').select('list').limit(1);
+            if (probe) return onMissing?.();
+          }
+          const { data } = await sb.from('items').select('*').order('created_at');
+          items = ((data ?? []) as ItemRow[]).filter(inList).map(toItem);
+          remember(items.map((i) => i.name));
+          cb(items);
+        };
+        refresh();
+        const channel = sb
+          .channel(`items-${list}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `family_id=eq.${familyId}` }, refresh)
+          // Les suppressions ne passent pas par le filtre famille : on les écoute à part.
+          .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'items' }, refresh)
+          .subscribe();
+        itemRefreshers.add(refresh);
+        // Rattrapage quand l'app revient au premier plan (le temps réel peut être coupé en veille).
+        const onVisible = () => document.visibilityState === 'visible' && refresh();
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+          itemRefreshers.delete(refresh);
+          sb.removeChannel(channel);
+          document.removeEventListener('visibilitychange', onVisible);
+        };
+      },
+      async add(input: NewItem, by: string) {
+        const name = input.name.trim();
+        if (!name) return;
+        if (!familyId) throw new Error('famille introuvable, rechargez la page');
+        remember([name]);
+        const { data: existing, error: readError } = await sb.from('items').select('*').eq('done', false);
+        if (readError) throw new Error(readError.message);
+        const dup = ((existing ?? []) as ItemRow[]).filter(inList).find((i) => normalize(i.name) === normalize(name));
+        if (dup) {
+          const patch: Record<string, string> = {};
+          if (input.qty) patch.qty = input.qty;
+          if (input.note) patch.note = input.note;
+          if (Object.keys(patch).length) await sb.from('items').update(patch).eq('id', dup.id);
+          refreshItems();
+          return;
+        }
+        const row: Record<string, unknown> = {
+          family_id: familyId,
+          name,
+          rayon: input.rayon,
+          qty: input.qty ?? null,
+          note: input.note ?? null,
+          voice: !!input.voice,
+          added_by: by
+        };
+        if (list !== 'courses') row.list = list;
+        const { error } = await sb.from('items').insert(row);
+        if (error) throw new Error(error.message);
         refreshItems();
-        return;
-      }
-      const { error } = await sb.from('items').insert({
-        family_id: familyId,
-        name,
-        rayon: input.rayon,
-        qty: input.qty ?? null,
-        note: input.note ?? null,
-        voice: !!input.voice,
-        added_by: by
-      });
-      if (error) throw error;
-      refreshItems();
-    },
-    async setDone(id, done, by) {
-      const { error } = await sb.from('items').update({ done, done_by: done ? by : null }).eq('id', id);
-      if (error) throw new Error(error.message);
-      refreshItems();
-    },
-    async update(id, patch) {
-      const { error } = await sb
-        .from('items')
-        .update({ name: patch.name, rayon: patch.rayon, qty: patch.qty ?? null, note: patch.note ?? null })
-        .eq('id', id);
-      if (error) throw new Error(error.message);
-      refreshItems();
-    },
-    async remove(id) {
-      const { error } = await sb.from('items').delete().eq('id', id);
-      if (error) throw new Error(error.message);
-      refreshItems();
-    },
-    async clearDone() {
-      if (!familyId) throw new Error('famille introuvable, rechargez la page');
-      const { error } = await sb.from('items').delete().eq('done', true).eq('family_id', familyId);
-      if (error) throw new Error(error.message);
-      refreshItems();
-    },
-    history: () => history
+      },
+      async setDone(id, done, by) {
+        const { error } = await sb.from('items').update({ done, done_by: done ? by : null }).eq('id', id);
+        if (error) throw new Error(error.message);
+        refreshItems();
+      },
+      async update(id, patch) {
+        const { error } = await sb
+          .from('items')
+          .update({ name: patch.name, rayon: patch.rayon, qty: patch.qty ?? null, note: patch.note ?? null })
+          .eq('id', id);
+        if (error) throw new Error(error.message);
+        refreshItems();
+      },
+      async remove(id) {
+        const { error } = await sb.from('items').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+        refreshItems();
+      },
+      async clearDone() {
+        if (!familyId) throw new Error('famille introuvable, rechargez la page');
+        const { data, error: readError } = await sb.from('items').select('*').eq('done', true);
+        if (readError) throw new Error(readError.message);
+        const ids = ((data ?? []) as ItemRow[]).filter(inList).map((r) => r.id);
+        if (!ids.length) return;
+        const { error } = await sb.from('items').delete().in('id', ids);
+        if (error) throw new Error(error.message);
+        refreshItems();
+      },
+      history: () => history
+    };
   };
+  const store = makeStore('courses');
+  const chinois = makeStore('chinois');
 
   interface StockRow {
     id: string;
@@ -266,6 +283,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
   return {
     store,
+    chinois,
     cave,
     onSession(cb) {
       sessionCbs.add(cb);

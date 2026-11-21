@@ -26,4 +26,7 @@ create policy "retirer de la cave" on public.stock for delete using (family_id =
 grant select, insert, update, delete on public.stock to authenticated;
 grant all on public.stock to service_role;
 
-alter publication supabase_realtime add table public.stock;
+do $$ begin
+  alter publication supabase_realtime add table public.stock;
+exception when duplicate_object then null;
+end $$;

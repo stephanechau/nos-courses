@@ -1,5 +1,3 @@
-import type { RayonId } from './rayons';
-
 export interface Member {
   id: string;
   name: string;
@@ -9,7 +7,7 @@ export interface Member {
 export interface Item {
   id: string;
   name: string;
-  rayon: RayonId;
+  rayon: string;
   qty?: string;
   note?: string;
   addedBy: string; // id du membre
@@ -34,7 +32,8 @@ export interface NotificationPrefs {
  * en ligne (Supabase ou Firebase) la remplacera sans toucher aux écrans.
  */
 export interface ListStore {
-  subscribe(cb: (items: Item[]) => void): () => void;
+  /** onMissing : la liste n'est pas encore installée dans la base. */
+  subscribe(cb: (items: Item[]) => void, onMissing?: () => void): () => void;
   add(item: NewItem, by: string): Promise<void>;
   setDone(id: string, done: boolean, by: string): Promise<void>;
   update(id: string, patch: Partial<NewItem>): Promise<void>;
