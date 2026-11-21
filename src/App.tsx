@@ -19,6 +19,7 @@ export default function App({ backend }: { backend: Backend }) {
   const [view, setView] = useState<View>({ kind: 'list' });
   const [listening, setListening] = useState(false);
   const [toast, setToast] = useState('');
+  const [familyCode, setFamilyCode] = useState<string>();
   const toastTimer = useRef<number>(0);
   const handledUrl = useRef(false);
 
@@ -35,6 +36,7 @@ export default function App({ backend }: { backend: Backend }) {
     const offItems = backend.store.subscribe(setItems);
     const offMembers = backend.onMembers(setMembers);
     backend.getPrefs().then(setPrefs);
+    backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
     return () => {
       offItems();
       offMembers();
@@ -92,13 +94,15 @@ export default function App({ backend }: { backend: Backend }) {
           backend.setPrefs(p).catch(() => say('Impossible d’activer les notifications sur ce téléphone.'));
         }}
         onBack={() => setView({ kind: 'list' })}
+        familyCode={familyCode}
         onInvite={async () => {
-          const url = backend.inviteLink();
-          const text = `Rejoins notre liste de courses : ${url}`;
-          if (navigator.share) await navigator.share({ title: 'Nos courses', text, url }).catch(() => {});
+          const inv = await backend.invitation();
+          if (!inv) return say('Invitation disponible une fois l’app en ligne.');
+          const text = `Rejoins notre liste de courses « Nos courses » : ${inv.link}\nCode famille : ${inv.code}`;
+          if (navigator.share) await navigator.share({ title: 'Nos courses', text }).catch(() => {});
           else {
-            await navigator.clipboard?.writeText(url);
-            say('Lien d’invitation copié');
+            await navigator.clipboard?.writeText(text);
+            say('Invitation copiée');
           }
         }}
         onVoice={() => setView({ kind: 'voice' })}

@@ -4,7 +4,7 @@ La liste de courses partagée de la famille : une web app installable (iPhone et
 synchronisée en direct, avec ajout à la voix (Siri, Android) et notifications.
 
 - Interface : React + Vite + TypeScript, installable (PWA)
-- En ligne : Supabase (base, comptes par code e-mail, temps réel, fonctions)
+- En ligne : Supabase (base, comptes par code famille sans e-mail, temps réel, fonctions)
 - Publication : GitHub Pages, tâche anti-veille GitHub Actions
 
 ## Essayer sur un ordinateur

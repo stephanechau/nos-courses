@@ -4,28 +4,34 @@ import { BasketIcon } from './Icons';
 
 export const MEMBER_COLORS = ['#2F5FA8', '#B0521A', '#6B4BA8', '#1F7672', '#A1306B', '#5B6B1E'];
 
-type Step = 'email' | 'code' | 'profile';
+type Mode = 'choice' | 'join' | 'create';
 
-/** Écran « Rejoindre la famille » : e-mail, code reçu, puis prénom et couleur. */
+/**
+ * Écran « Rejoindre la famille ».
+ * Pas d'e-mail ni de mot de passe : on tape le code famille (ou on arrive par le lien
+ * d'invitation), puis son prénom et sa couleur. Une seule fois par téléphone.
+ */
 export function Login({ backend }: { backend: Backend }) {
+  const pending = backend.pendingCode();
+  const [mode, setMode] = useState<Mode>(!backend.online ? 'create' : pending ? 'join' : 'choice');
+  const [code, setCode] = useState(pending ?? '');
   const [inviter, setInviter] = useState<string>();
-  const [step, setStep] = useState<Step>(backend.emailLogin ? 'email' : 'profile');
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [color, setColor] = useState(MEMBER_COLORS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    backend.inviterName().then(setInviter).catch(() => {});
-  }, [backend]);
+    if (code.trim().length < 6) return setInviter(undefined);
+    const t = setTimeout(() => backend.inviterName(code).then(setInviter).catch(() => {}), 300);
+    return () => clearTimeout(t);
+  }, [backend, code]);
 
-  const run = async (fn: () => Promise<void>) => {
+  const submit = async () => {
     setBusy(true);
     setError('');
     try {
-      await fn();
+      await backend.join(name.trim(), color, mode === 'join' ? code : undefined);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : 'Une erreur est survenue, réessayez.');
     } finally {
@@ -43,76 +49,47 @@ export function Login({ backend }: { backend: Backend }) {
         <p>{inviter ? `${inviter} vous invite à partager la liste de courses de la famille.` : 'La liste de courses partagée de la famille.'}</p>
       </div>
 
-      {step === 'email' && (
-        <form
-          className="login"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(async () => {
-              await backend.emailLogin!.sendCode(email.trim());
-              setStep('code');
-            });
-          }}
-        >
-          <h2>Connectez-vous</h2>
-          <label htmlFor="mail" className="field-label">
-            Votre adresse e-mail
-          </label>
-          <input id="mail" type="email" required className="text-input" style={{ marginTop: 0 }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom@exemple.fr" autoComplete="email" />
-          <button type="submit" className="primary" disabled={busy || !email.includes('@')}>
-            Recevoir un code
+      {mode === 'choice' && (
+        <div className="login">
+          <h2>Bienvenue !</h2>
+          <button className="primary" onClick={() => setMode('join')}>
+            J’ai un code famille
+          </button>
+          <button className="secondary" onClick={() => setMode('create')}>
+            Créer la liste de ma famille
           </button>
           <p className="hint" style={{ textAlign: 'center' }}>
-            Pas de mot de passe à retenir. Vous ne le ferez qu’une fois, ensuite vous restez connecté.
+            Une seule personne crée la liste, puis invite les autres depuis les réglages.
           </p>
-        </form>
+        </div>
       )}
 
-      {step === 'code' && (
+      {(mode === 'join' || mode === 'create') && (
         <form
           className="login"
           onSubmit={(e) => {
             e.preventDefault();
-            run(async () => {
-              const hasProfile = await backend.emailLogin!.verifyCode(email.trim(), code.trim());
-              if (!hasProfile) setStep('profile');
-            });
+            if (name.trim()) submit();
           }}
         >
-          <h2>Entrez le code reçu</h2>
-          <p className="hint" style={{ textAlign: 'center' }}>
-            Nous venons d’envoyer un code à {email}. Pensez à regarder dans les courriers indésirables.
-          </p>
-          <label htmlFor="code" className="sr-only">
-            Code reçu par e-mail
-          </label>
-          <input
-            id="code"
-            className="text-input"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            style={{ textAlign: 'center', fontSize: 26, letterSpacing: 8, fontWeight: 800 }}
-          />
-          <button type="submit" className="primary" disabled={busy || code.length < 6}>
-            Valider
-          </button>
-          <button type="button" className="link-btn" onClick={() => setStep('email')}>
-            Changer d’adresse
-          </button>
-        </form>
-      )}
-
-      {step === 'profile' && (
-        <form
-          className="login"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) run(() => backend.join(name.trim(), color));
-          }}
-        >
-          <h2>Qui êtes-vous ?</h2>
+          <h2>{mode === 'join' ? 'Rejoindre la famille' : 'Qui êtes-vous ?'}</h2>
+          {mode === 'join' && (
+            <>
+              <label htmlFor="code" className="field-label">
+                Code famille
+              </label>
+              <input
+                id="code"
+                className="text-input"
+                style={{ marginTop: 0, textTransform: 'uppercase', letterSpacing: 4, fontWeight: 800, fontSize: 20, textAlign: 'center' }}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))}
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </>
+          )}
           <label htmlFor="prenom" className="field-label">
             Votre prénom
           </label>
@@ -132,9 +109,17 @@ export function Login({ backend }: { backend: Backend }) {
               />
             ))}
           </div>
-          <button type="submit" className="primary" disabled={busy || !name.trim()} style={{ marginTop: 12 }}>
-            Rejoindre la liste
+          <button type="submit" className="primary" disabled={busy || !name.trim() || (mode === 'join' && code.trim().length < 6)} style={{ marginTop: 12 }}>
+            {mode === 'join' ? 'Rejoindre la liste' : 'Créer la liste'}
           </button>
+          {backend.online && (
+            <button type="button" className="link-btn" onClick={() => setMode('choice')}>
+              Retour
+            </button>
+          )}
+          <p className="hint" style={{ textAlign: 'center' }}>
+            Pas de mot de passe. Vous ne le ferez qu’une fois sur ce téléphone.
+          </p>
         </form>
       )}
 

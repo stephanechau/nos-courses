@@ -18,25 +18,22 @@ Vous aurez besoin de deux comptes gratuits, sans carte bancaire :
    - Mot de passe de la base : générez-en un et gardez-le de côté (il ne servira presque jamais).
 2. Une fois le projet prêt, ouvrez **SQL Editor**, collez tout le contenu du fichier
    `supabase/migrations/20261121000000_init.sql`, puis **Run**. Cela crée la liste, les membres et les règles de sécurité.
+   Faites de même, dans l'ordre, avec chaque fichier suivant du dossier `supabase/migrations/`
+   (par exemple `20261121180000_code_famille.sql`).
 3. Ouvrez **Project Settings > API** et notez :
    - **Project URL** (ressemble à `https://abcd1234.supabase.co`)
    - **anon public key** (une longue clé ; elle est faite pour être publique)
 
-## Étape 2 : la connexion par code e-mail
+## Étape 2 : la connexion avec le code famille
 
-1. **Authentication > Sign In / Providers** : vérifiez que **Email** est activé.
-2. **Authentication > Emails > Templates > Magic Link** : remplacez le contenu par :
+Pas d'e-mail ni de mot de passe : chacun rejoint la famille avec un **code famille** de 6 caractères,
+une seule fois par téléphone. Pour l'autoriser :
 
-   ```html
-   <h2>Votre code pour Nos courses</h2>
-   <p>Tapez ce code dans l'app : <strong style="font-size:24px">{{ .Token }}</strong></p>
-   ```
+1. **Authentication > Sign In / Providers**.
+2. Activez **Allow anonymous sign-ins**, puis **Save changes**.
 
-   Ainsi chacun reçoit un **code à 6 chiffres** à taper dans l'app. C'est plus fiable qu'un lien sur iPhone,
-   car un lien s'ouvrirait dans Safari au lieu de l'app installée.
-3. **Authentication > URL Configuration** : mettez l'adresse du site (voir étape 4) dans **Site URL**.
-
-> L'offre gratuite envoie quelques e-mails par heure, largement assez pour 4 personnes qui ne se connectent qu'une fois.
+> Sur l'offre gratuite, Supabase n'envoie des e-mails qu'aux membres de votre organisation Supabase :
+> c'est pour cela qu'on n'utilise pas la connexion par e-mail.
 
 ## Étape 3 : les clés de notification
 
@@ -75,11 +72,13 @@ Dans Supabase, **Edge Functions > Deploy a new function > Via Editor** :
 
 ## Étape 6 : installer l'app sur les téléphones
 
-1. Ouvrez l'adresse du site, entrez votre e-mail puis le code reçu, votre prénom et votre couleur.
-   Vous créez ainsi la famille.
-2. **Réglages > Inviter un membre de la famille** : envoyez le lien à chacun (SMS, WhatsApp…).
-3. Sur **iPhone** : ouvrir le lien **dans Safari**, bouton **Partager**, puis **Sur l'écran d'accueil**.
-   Ensuite seulement, ouvrir l'app depuis l'icône et activer les notifications dans les réglages.
+1. Ouvrez l'adresse du site, touchez **Créer la liste de ma famille**, puis entrez votre prénom et votre couleur.
+2. **Réglages > Inviter un membre de la famille** : envoyez le lien et le code famille à chacun (SMS, WhatsApp…).
+   Chacun touche **J'ai un code famille**, tape le code, son prénom et sa couleur.
+3. Sur **iPhone** : ouvrir le lien **dans Safari**, bouton **Partager**, puis **Sur l'écran d'accueil**,
+   puis ouvrir l'app **depuis l'icône** et seulement là taper le code famille
+   (l'app installée et Safari ne partagent pas leurs données sur iPhone).
+   Activer ensuite les notifications dans les réglages de l'app.
 4. Sur **Android** : Chrome propose **Installer l'application** ; acceptez.
 
 ## Étape 7 : l'ajout à la voix

@@ -37,7 +37,7 @@ const INVITE_KEY = 'nos-courses:invite';
 const HISTORY_KEY = 'nos-courses:history';
 
 function readInvite(): string | undefined {
-  const q = new URLSearchParams(location.search).get('invitation');
+  const q = new URLSearchParams(location.search).get('invitation')?.toUpperCase() ?? null;
   try {
     if (q) localStorage.setItem(INVITE_KEY, q);
     return q ?? localStorage.getItem(INVITE_KEY) ?? undefined;
@@ -175,21 +175,17 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         sb.removeChannel(channel);
       };
     },
-    emailLogin: {
-      async sendCode(email) {
-        const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-        if (error) throw new Error('Impossible d’envoyer le code. Vérifiez l’adresse.');
-      },
-      async verifyCode(email, code) {
-        const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
-        if (error) throw new Error('Code incorrect ou expiré.');
-        await loadMe();
-        return me !== null;
+    online: true,
+    pendingCode: () => invite,
+    async join(name, color, familyCode) {
+      const { data: session } = await sb.auth.getSession();
+      if (!session.session) {
+        const { error } = await sb.auth.signInAnonymously();
+        if (error) throw new Error('Connexion impossible. Vérifiez votre connexion internet.');
       }
-    },
-    async join(name, color) {
-      const { error } = await sb.rpc('join_family', { p_name: name, p_color: color, p_invite: invite ?? null });
-      if (error) throw new Error(error.message);
+      const code = familyCode?.trim().toUpperCase() || null;
+      const { error } = await sb.rpc('join_family', { p_name: name, p_color: color, p_invite: code });
+      if (error) throw new Error(/invitation/i.test(error.message) ? 'Code famille inconnu. Vérifiez-le auprès de la famille.' : error.message);
       try {
         localStorage.removeItem(INVITE_KEY);
       } catch {
@@ -201,25 +197,21 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       await unsubscribePush(sb).catch(() => {});
       await sb.auth.signOut();
     },
-    async inviterName() {
-      if (!invite) return undefined;
-      const { data } = await sb.rpc('invite_info', { p_invite: invite });
+    async inviterName(familyCode) {
+      const { data } = await sb.rpc('invite_info', { p_invite: familyCode.trim().toUpperCase() });
       return (data as string | null) ?? undefined;
     },
-    inviteLink() {
-      // Le code est chargé à la demande ; on renvoie le lien une fois connu.
-      return inviteUrl ?? location.origin;
+    async invitation() {
+      const { data } = await sb.rpc('my_invite_code');
+      if (!data) return undefined;
+      return { code: data as string, link: `${location.origin}${location.pathname}?invitation=${data}` };
     },
     async voiceSetup() {
       const { data, error } = await sb.rpc('my_voice_token');
       if (error || !data) throw new Error('Jeton indisponible');
       return { endpoint: `${url}/functions/v1/ajout`, token: data as string };
     },
-    getPrefs: async () => {
-      const { data } = await sb.rpc('my_invite_code');
-      inviteUrl = data ? `${location.origin}${location.pathname}?invitation=${data}` : null;
-      return prefs;
-    },
+    getPrefs: async () => prefs,
     async setPrefs(p) {
       prefs = p;
       if (!me) return;
@@ -230,4 +222,3 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   };
 }
 
-let inviteUrl: string | null = null;

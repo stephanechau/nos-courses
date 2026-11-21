@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Member, NotificationPrefs } from '../data/types';
 import { BackIcon } from './Icons';
 
@@ -6,6 +7,7 @@ interface Props {
   prefs: NotificationPrefs;
   onChange: (p: NotificationPrefs) => void;
   onBack: () => void;
+  familyCode?: string;
   onInvite: () => void;
   onVoice: () => void;
   onLogout: () => void;
@@ -18,7 +20,8 @@ const ROWS: { key: keyof NotificationPrefs; title: string; desc: string }[] = [
   { key: 'onShopping', title: 'Quand quelqu’un fait les courses', desc: 'Être prévenu quand un membre commence à cocher la liste.' }
 ];
 
-export function Settings({ me, prefs, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
+export function Settings({ me, prefs, familyCode, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
+  const [confirmLeave, setConfirmLeave] = useState(false);
   return (
     <div className="app">
       <header className="page-head">
@@ -62,9 +65,19 @@ export function Settings({ me, prefs, onChange, onBack, onInvite, onVoice, onLog
         <button className="secondary" onClick={onInvite}>
           Inviter un membre de la famille
         </button>
-        <button className="danger" onClick={onLogout}>
-          Se déconnecter ({me.name})
+        {familyCode && (
+          <p className="hint" style={{ textAlign: 'center' }}>
+            Code famille : <strong style={{ letterSpacing: 3, color: 'var(--text)' }}>{familyCode}</strong>
+          </p>
+        )}
+        <button className="danger" onClick={() => (confirmLeave ? onLogout() : setConfirmLeave(true))}>
+          {confirmLeave ? `Confirmer : ${me.name} quitte la liste sur ce téléphone` : 'Quitter la liste sur ce téléphone'}
         </button>
+        {confirmLeave && (
+          <p className="hint" style={{ textAlign: 'center' }}>
+            Pour revenir ensuite, il suffira de retaper le code famille.
+          </p>
+        )}
       </main>
     </div>
   );

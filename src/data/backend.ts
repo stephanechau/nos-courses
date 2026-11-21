@@ -7,17 +7,17 @@ export interface Backend {
   /** Appelé avec le membre connecté, ou null s'il faut se connecter. */
   onSession(cb: (me: Member | null) => void): () => void;
   onMembers(cb: (members: Member[]) => void): () => void;
-  join(name: string, color: string): Promise<void>;
+  /** Rejoint la famille du code donné, ou crée la famille si aucun code. */
+  join(name: string, color: string, familyCode?: string): Promise<void>;
   logout(): Promise<void>;
-  /** Nom de la personne qui invite (lien d'invitation), s'il y en a un. */
-  inviterName(): Promise<string | undefined>;
-  /** Connexion par code reçu par e-mail (absent en mode test). */
-  emailLogin?: {
-    sendCode(email: string): Promise<void>;
-    /** Renvoie true si le compte a déjà un profil dans la famille. */
-    verifyCode(email: string, code: string): Promise<boolean>;
-  };
-  inviteLink(): string;
+  /** true si les données sont partagées en ligne (false en mode test). */
+  online: boolean;
+  /** Code famille reçu par un lien d'invitation, s'il y en a un. */
+  pendingCode(): string | undefined;
+  /** Nom de la personne qui a créé la famille de ce code. */
+  inviterName(familyCode: string): Promise<string | undefined>;
+  /** Code et lien d'invitation de sa propre famille. */
+  invitation(): Promise<{ code: string; link: string } | undefined>;
   /** Adresse et jeton personnel pour les raccourcis vocaux (absent en mode test). */
   voiceSetup?(): Promise<{ endpoint: string; token: string }>;
   getPrefs(): Promise<NotificationPrefs>;
@@ -74,8 +74,10 @@ export function createLocalBackend(): Backend {
       localStorage.removeItem(ME);
       sessionCbs.forEach((cb) => cb(null));
     },
+    online: false,
+    pendingCode: () => undefined,
     inviterName: async () => undefined,
-    inviteLink: () => location.origin,
+    invitation: async () => undefined,
     getPrefs: async () => get(PREFS, DEFAULT_PREFS),
     setPrefs: async (p) => set(PREFS, p)
   };
