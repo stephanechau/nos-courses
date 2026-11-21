@@ -27,7 +27,7 @@ export default function App({ backend }: { backend: Backend }) {
   const say = useCallback((msg: string) => {
     setToast(msg);
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(''), 3000);
+    toastTimer.current = window.setTimeout(() => setToast(''), Math.max(3000, msg.length * 70));
   }, []);
 
   useEffect(() => backend.onSession(setMe), [backend]);
@@ -60,11 +60,23 @@ export default function App({ backend }: { backend: Backend }) {
       return;
     }
     setListening(true);
+    let text = '';
     try {
-      const text = await listenOnce().promise;
+      text = await listenOnce().promise;
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      setListening(false);
+      if (code === 'not-allowed' || code === 'service-not-allowed')
+        return say('Micro bloqué : autorisez le micro pour cette app dans les réglages du téléphone.');
+      if (code === 'network') return say('La dictée a besoin d’internet, réessayez.');
+      if (code === 'audio-capture') return say('Aucun micro disponible.');
+      if (code === 'no-speech' || code === 'aborted') return say('Je n’ai rien entendu, réessayez.');
+      return say(`Dictée impossible (${code || 'erreur inconnue'}).`);
+    }
+    try {
       await addNames(parseSpoken(text), true);
-    } catch {
-      say('Je n’ai rien entendu, réessayez.');
+    } catch (e) {
+      say(e instanceof Error && e.message ? `Impossible d’enregistrer : ${e.message}` : 'Impossible d’enregistrer.');
     } finally {
       setListening(false);
     }
@@ -93,7 +105,10 @@ export default function App({ backend }: { backend: Backend }) {
         prefs={prefs}
         onChange={(p) => {
           setPrefs(p);
-          backend.setPrefs(p).catch(() => say('Impossible d’activer les notifications sur ce téléphone.'));
+          backend
+            .setPrefs(p)
+            .then(() => (p.onAdd || p.onShopping) && backend.online && say('Notifications activées sur ce téléphone'))
+            .catch((e) => say(e instanceof Error && e.message ? e.message : 'Impossible d’activer les notifications sur ce téléphone.'));
         }}
         onBack={() => setView({ kind: 'list' })}
         familyCode={familyCode}

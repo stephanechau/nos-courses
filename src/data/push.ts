@@ -14,11 +14,14 @@ export async function subscribePush(sb: SupabaseClient, memberId: string): Promi
     throw new Error('Notifications non disponibles ici (sur iPhone, installez d’abord l’app sur l’écran d’accueil).');
   }
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Notifications refusées');
+  if (permission !== 'granted') throw new Error('Notifications bloquées pour cette app. Autorisez-les dans les réglages du téléphone, puis réessayez.');
   const reg = await navigator.serviceWorker.ready;
   const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(VAPID_PUBLIC) }));
   const json = sub.toJSON();
-  await sb.from('push_subscriptions').upsert({ endpoint: sub.endpoint, member_id: memberId, p256dh: json.keys!.p256dh, auth: json.keys!.auth });
+  const { error } = await sb
+    .from('push_subscriptions')
+    .upsert({ endpoint: sub.endpoint, member_id: memberId, p256dh: json.keys!.p256dh, auth: json.keys!.auth });
+  if (error) throw new Error(`Enregistrement des notifications impossible : ${error.message}`);
 }
 
 export async function unsubscribePush(sb: SupabaseClient): Promise<void> {
