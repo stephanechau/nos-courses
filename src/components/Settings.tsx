@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Member, NotificationPrefs } from '../data/types';
 import { BackIcon } from './Icons';
+import { Avatar } from './ListScreen';
 
 interface Props {
   me: Member;
@@ -8,6 +9,9 @@ interface Props {
   onChange: (p: NotificationPrefs) => void;
   onBack: () => void;
   familyCode?: string;
+  members: Member[];
+  isCreator: boolean;
+  onRemoveMember: (m: Member) => void;
   onInvite: () => void;
   onVoice: () => void;
   onLogout: () => void;
@@ -20,8 +24,9 @@ const ROWS: { key: keyof NotificationPrefs; title: string; desc: string }[] = [
   { key: 'onShopping', title: 'Quand quelqu’un fait les courses', desc: 'Être prévenu quand un membre commence à cocher la liste.' }
 ];
 
-export function Settings({ me, prefs, familyCode, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
+export function Settings({ me, prefs, familyCode, members, isCreator, onRemoveMember, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string>();
   return (
     <div className="app">
       <header className="page-head">
@@ -59,6 +64,40 @@ export function Settings({ me, prefs, familyCode, onChange, onBack, onInvite, on
           Vous ne recevez jamais de notification pour vos propres ajouts. Sur iPhone, il faut d’abord installer l’app sur l’écran d’accueil
           (bouton Partager, puis « Sur l’écran d’accueil »).
         </p>
+        <section>
+          <h2 className="hint" style={{ fontWeight: 800, marginBottom: 10 }}>
+            La famille
+          </h2>
+          <div className="card">
+            {members.map((m) => (
+              <div className="setting member" key={m.id}>
+                <Avatar m={m} size={36} />
+                <div>
+                  <strong>
+                    {m.name}
+                    {m.id === me.id ? ' (vous)' : ''}
+                  </strong>
+                </div>
+                {isCreator && m.id !== me.id && (
+                  <button
+                    className={`danger small${confirmRemove === m.id ? ' confirm' : ''}`}
+                    onClick={() => {
+                      if (confirmRemove === m.id) {
+                        setConfirmRemove(undefined);
+                        onRemoveMember(m);
+                      } else setConfirmRemove(m.id);
+                    }}
+                  >
+                    {confirmRemove === m.id ? 'Confirmer' : 'Retirer'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+        {isCreator && (
+          <p className="hint">Une personne retirée pourra revenir en retapant le code famille. Ses articles restent dans la liste.</p>
+        )}
         <button className="secondary" onClick={onVoice}>
           Ajouter avec Siri ou l’assistant Android
         </button>

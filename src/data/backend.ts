@@ -20,6 +20,10 @@ export interface Backend {
   invitation(): Promise<{ code: string; link: string } | undefined>;
   /** Adresse et jeton personnel pour les raccourcis vocaux (absent en mode test). */
   voiceSetup?(): Promise<{ endpoint: string; token: string }>;
+  /** true si ce téléphone appartient à la personne qui a créé la famille. */
+  isCreator(): Promise<boolean>;
+  /** Retire un membre de la famille (réservé au créateur). */
+  removeMember(id: string): Promise<void>;
   getPrefs(): Promise<NotificationPrefs>;
   setPrefs(p: NotificationPrefs): Promise<void>;
 }
@@ -78,6 +82,12 @@ export function createLocalBackend(): Backend {
     pendingCode: () => undefined,
     inviterName: async () => undefined,
     invitation: async () => undefined,
+    isCreator: async () => true,
+    async removeMember(id) {
+      const members = get<Member[]>(MEMBERS, []).filter((m) => m.id !== id);
+      set(MEMBERS, members);
+      memberCbs.forEach((cb) => cb(members));
+    },
     getPrefs: async () => get(PREFS, DEFAULT_PREFS),
     setPrefs: async (p) => set(PREFS, p)
   };

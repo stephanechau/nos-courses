@@ -20,6 +20,7 @@ export default function App({ backend }: { backend: Backend }) {
   const [listening, setListening] = useState(false);
   const [toast, setToast] = useState('');
   const [familyCode, setFamilyCode] = useState<string>();
+  const [isCreator, setIsCreator] = useState(false);
   const toastTimer = useRef<number>(0);
   const handledUrl = useRef(false);
 
@@ -37,6 +38,7 @@ export default function App({ backend }: { backend: Backend }) {
     const offMembers = backend.onMembers(setMembers);
     backend.getPrefs().then(setPrefs);
     backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
+    backend.isCreator().then(setIsCreator).catch(() => {});
     return () => {
       offItems();
       offMembers();
@@ -95,6 +97,14 @@ export default function App({ backend }: { backend: Backend }) {
         }}
         onBack={() => setView({ kind: 'list' })}
         familyCode={familyCode}
+        members={members}
+        isCreator={isCreator}
+        onRemoveMember={(m) =>
+          backend
+            .removeMember(m.id)
+            .then(() => say(`${m.name} a été retiré de la famille`))
+            .catch((e) => say(e instanceof Error && e.message ? e.message : 'Impossible de retirer ce membre.'))
+        }
         onInvite={async () => {
           const inv = await backend.invitation();
           if (!inv) return say('Invitation disponible une fois l’app en ligne.');

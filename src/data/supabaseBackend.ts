@@ -170,7 +170,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     onMembers(cb) {
       const refresh = async () => {
         const { data } = await sb.from('members').select('id, name, color').order('created_at');
-        cb((data ?? []) as Member[]);
+        const list = (data ?? []) as Member[];
+        // Si ce téléphone a été retiré de la famille, on revient à l'écran d'accueil.
+        if (me && !list.some((m) => m.id === me!.id)) return loadMe();
+        cb(list);
       };
       refresh();
       const channel = sb.channel('members').on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, refresh).subscribe();
@@ -213,6 +216,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const { data, error } = await sb.rpc('my_voice_token');
       if (error || !data) throw new Error('Jeton indisponible');
       return { endpoint: `${url}/functions/v1/ajout`, token: data as string };
+    },
+    async isCreator() {
+      const { data } = await sb.rpc('i_created_family');
+      return data === true;
+    },
+    async removeMember(id) {
+      const { error } = await sb.rpc('remove_member', { p_member: id });
+      if (error) throw new Error(error.message);
     },
     getPrefs: async () => prefs,
     async setPrefs(p) {
