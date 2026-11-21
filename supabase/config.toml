@@ -1,0 +1,7 @@
+# Les deux fonctions sont appelées sans connexion :
+# « ajout » est protégée par le jeton personnel, « notify » par NOTIFY_SECRET.
+[functions.ajout]
+verify_jwt = false
+
+[functions.notify]
+verify_jwt = false
