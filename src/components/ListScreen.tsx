@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Item, Member } from '../data/types';
 import { RAYONS } from '../data/rayons';
 import { BasketIcon, BellIcon, CartIcon, CheckIcon, CloseIcon, MicIcon, PathIcon, PlusIcon } from './Icons';
@@ -13,6 +14,7 @@ interface Props {
   onVoice: () => void;
   onClearDone: () => void;
   onSettings: () => void;
+  tabs: ReactNode;
   showPushBanner: boolean;
   /** Articles déjà cherchés sur Carrefour (le chariot devient blanc). */
   searched: Set<string>;
@@ -63,7 +65,8 @@ export function ListScreen(p: Props) {
             </button>
           </div>
         </div>
-        <h1>Nos courses</h1>
+        <h1 className="sr-only">Nos courses</h1>
+        {p.tabs}
         <div className="hero-stats">
           <span>{todo.length} article{todo.length > 1 ? 's' : ''} à prendre</span>
           <span>{done.length} dans le panier</span>

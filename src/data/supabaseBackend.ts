@@ -5,6 +5,7 @@ import type { Item, ListStore, Member, NewItem, NotificationPrefs } from './type
 import type { RayonId } from './rayons';
 import { normalize } from './rayons';
 import { pushStatus, subscribePush, unsubscribePush } from './push';
+import type { CaveCat, CaveStore, StockItem } from './cave';
 
 interface ItemRow {
   id: string;
@@ -160,8 +161,83 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     history: () => history
   };
 
+  interface StockRow {
+    id: string;
+    name: string;
+    category: string;
+    detail: string | null;
+    qty: number;
+    updated_at: string;
+  }
+  const toStock = (r: StockRow): StockItem => ({
+    id: r.id,
+    name: r.name,
+    category: r.category as CaveCat,
+    detail: r.detail ?? undefined,
+    qty: r.qty,
+    updatedAt: Date.parse(r.updated_at)
+  });
+  const now = () => new Date().toISOString();
+  const cave: CaveStore = {
+    subscribe(cb, onMissing) {
+      const refresh = async () => {
+        const { data, error } = await sb.from('stock').select('id, name, category, detail, qty, updated_at').order('name');
+        if (error) {
+          // Table absente : la cave n'a pas encore été installée dans Supabase.
+          if (/stock|relation|schema cache/i.test(error.message)) onMissing?.();
+          return;
+        }
+        cb((data ?? []).map((r) => toStock(r as StockRow)));
+      };
+      refresh();
+      const channel = sb
+        .channel('stock')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock', filter: `family_id=eq.${familyId}` }, refresh)
+        .subscribe();
+      const onVisible = () => document.visibilityState === 'visible' && refresh();
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        sb.removeChannel(channel);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
+    },
+    async add(it, by) {
+      const name = it.name.trim();
+      if (!name) return;
+      if (!familyId) throw new Error('famille introuvable, rechargez la page');
+      const { data: existing, error: readError } = await sb.from('stock').select('id, name, qty');
+      if (readError) throw new Error(readError.message);
+      const dup = existing?.find((i) => normalize(i.name) === normalize(name));
+      if (dup) {
+        const { error } = await sb.from('stock').update({ qty: dup.qty + it.qty, updated_by: by, updated_at: now() }).eq('id', dup.id);
+        if (error) throw new Error(error.message);
+        return;
+      }
+      const { error } = await sb
+        .from('stock')
+        .insert({ family_id: familyId, name, category: it.category, detail: it.detail ?? null, qty: it.qty, updated_by: by });
+      if (error) throw new Error(error.message);
+    },
+    async update(id, p, by) {
+      const { error } = await sb
+        .from('stock')
+        .update({ name: p.name.trim(), category: p.category, detail: p.detail ?? null, qty: p.qty, updated_by: by, updated_at: now() })
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    async setQty(id, qty, by) {
+      const { error } = await sb.from('stock').update({ qty: Math.max(0, qty), updated_by: by, updated_at: now() }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    async remove(id) {
+      const { error } = await sb.from('stock').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    }
+  };
+
   return {
     store,
+    cave,
     onSession(cb) {
       sessionCbs.add(cb);
       loadMe();

@@ -7,13 +7,18 @@ import { ListScreen } from './components/ListScreen';
 import { AddSheet } from './components/AddSheet';
 import { Settings } from './components/Settings';
 import { CarrefourWalk } from './components/CarrefourWalk';
+import { CaveScreen } from './components/CaveScreen';
+import { CaveSheet } from './components/CaveSheet';
+import { Tabs, type Tab } from './components/Tabs';
+import { guessCaveCat, type NewStock, type StockItem } from './data/cave';
 import { openCarrefour } from './data/carrefour';
 import { Login } from './components/Login';
 import { VoiceSetup } from './components/VoiceSetup';
 
-type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] };
+type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] } | { kind: 'caveAdd' } | { kind: 'caveEdit'; item: StockItem };
 
 const PUSH_DISMISSED = 'nos-courses:push-banner-masque';
+const TAB_KEY = 'nos-courses:onglet';
 
 export default function App({ backend }: { backend: Backend }) {
   const [me, setMe] = useState<Member | null | undefined>(undefined); // undefined = chargement
@@ -25,6 +30,24 @@ export default function App({ backend }: { backend: Backend }) {
   const [toast, setToast] = useState('');
   const [familyCode, setFamilyCode] = useState<string>();
   const [pushOff, setPushOff] = useState(false);
+  const [tab, setTabState] = useState<Tab>(() => {
+    try {
+      return localStorage.getItem(TAB_KEY) === 'cave' ? 'cave' : 'courses';
+    } catch {
+      return 'courses';
+    }
+  });
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    setToast('');
+    try {
+      localStorage.setItem(TAB_KEY, t);
+    } catch {
+      /* ignoré */
+    }
+  };
+  const [stock, setStock] = useState<StockItem[]>([]);
+  const [caveMissing, setCaveMissing] = useState(false);
   const [searched, setSearched] = useState<Set<string>>(() => new Set());
   const [pushDismissed, setPushDismissed] = useState(() => {
     try {
@@ -48,6 +71,13 @@ export default function App({ backend }: { backend: Backend }) {
     if (!me) return;
     const offItems = backend.store.subscribe(setItems);
     const offMembers = backend.onMembers(setMembers);
+    const offCave = backend.cave.subscribe(
+      (s) => {
+        setCaveMissing(false);
+        setStock(s);
+      },
+      () => setCaveMissing(true)
+    );
     backend.getPrefs().then(setPrefs);
     backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
     backend
@@ -57,6 +87,7 @@ export default function App({ backend }: { backend: Backend }) {
     return () => {
       offItems();
       offMembers();
+      offCave();
     };
   }, [backend, me]);
 
@@ -69,7 +100,7 @@ export default function App({ backend }: { backend: Backend }) {
     [backend, me, say]
   );
 
-  const voice = useCallback(async () => {
+  const dictate = useCallback(async (handle: (names: string[]) => Promise<void>) => {
     if (!speechAvailable()) {
       say('La dictée n’est pas disponible sur ce navigateur.');
       return;
@@ -89,13 +120,24 @@ export default function App({ backend }: { backend: Backend }) {
       return say(`Dictée impossible (${code || 'erreur inconnue'}).`);
     }
     try {
-      await addNames(parseSpoken(text), true);
+      await handle(parseSpoken(text));
     } catch (e) {
       say(e instanceof Error && e.message ? `Impossible d’enregistrer : ${e.message}` : 'Impossible d’enregistrer.');
     } finally {
       setListening(false);
     }
-  }, [addNames, say]);
+  }, [say]);
+
+  const voice = useCallback(() => dictate((names) => addNames(names, true)), [dictate, addNames]);
+
+  const storeInCave = useCallback(
+    async (names: string[]) => {
+      if (!me || names.length === 0) return;
+      for (const name of names) await backend.cave.add({ name, category: guessCaveCat(name), qty: 1 }, me.id);
+      say(names.length === 1 ? `« ${names[0]} » rangé à la cave` : `${names.length} objets rangés : ${names.join(', ')}`);
+    },
+    [backend, me, say]
+  );
 
   // Liens utilisés par les raccourcis : /?ajout=farine,pâtes  ou  /?voix=1
   useEffect(() => {
@@ -165,6 +207,66 @@ export default function App({ backend }: { backend: Backend }) {
     );
   }
 
+  const tabs = <Tabs tab={tab} onTab={setTab} />;
+
+  if (tab === 'cave') {
+    const saveStock = async (data: NewStock) => {
+      try {
+        if (view.kind === 'caveEdit') await backend.cave.update(view.item.id, data, me.id);
+        else {
+          await backend.cave.add(data, me.id);
+          say(`« ${data.name} » rangé à la cave`);
+        }
+        setView({ kind: 'list' });
+      } catch (e) {
+        say(`Impossible d’enregistrer : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
+      }
+    };
+    return (
+      <>
+        <CaveScreen
+          me={me}
+          members={members}
+          items={stock}
+          missing={caveMissing}
+          tabs={tabs}
+          listening={listening}
+          onQty={(it, q) => backend.cave.setQty(it.id, q, me.id).catch(() => say('Impossible de modifier la quantité.'))}
+          onEdit={(item) => setView({ kind: 'caveEdit', item })}
+          onAdd={() => {
+            setToast('');
+            setView({ kind: 'caveAdd' });
+          }}
+          onVoice={() => dictate(storeInCave)}
+          onToShopping={(it) =>
+            addNames([it.name], false).catch((e) => say(`Impossible d’ajouter : ${e instanceof Error ? e.message : 'erreur inconnue'}`))
+          }
+          onSettings={() => setView({ kind: 'settings' })}
+        />
+        {(view.kind === 'caveAdd' || view.kind === 'caveEdit') && (
+          <CaveSheet
+            editing={view.kind === 'caveEdit' ? view.item : undefined}
+            onSave={saveStock}
+            onDelete={
+              view.kind === 'caveEdit'
+                ? async () => {
+                    await backend.cave.remove(view.item.id).catch(() => say('Impossible de supprimer.'));
+                    setView({ kind: 'list' });
+                  }
+                : undefined
+            }
+            onClose={() => setView({ kind: 'list' })}
+          />
+        )}
+        {toast && (
+          <div className="toast" role="status">
+            {toast}
+          </div>
+        )}
+      </>
+    );
+  }
+
   const save = async (data: NewItem) => {
     try {
       if (view.kind === 'edit') await backend.store.update(view.item.id, data);
@@ -194,6 +296,7 @@ export default function App({ backend }: { backend: Backend }) {
         onVoice={voice}
         onClearDone={() => backend.store.clearDone()}
         onSettings={() => setView({ kind: 'settings' })}
+        tabs={tabs}
         showPushBanner={pushOff && !pushDismissed}
         searched={searched}
         onCarrefour={(it) => {

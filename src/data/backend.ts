@@ -1,9 +1,12 @@
 import type { ListStore, Member, NotificationPrefs } from './types';
 import { createLocalStore } from './localStore';
+import { createLocalCave, type CaveStore } from './cave';
 
 /** Ce que l'app attend du service en ligne (Supabase) ou du mode test local. */
 export interface Backend {
   store: ListStore;
+  /** Le stock de la cave. */
+  cave: CaveStore;
   /** Appelé avec le membre connecté, ou null s'il faut se connecter. */
   onSession(cb: (me: Member | null) => void): () => void;
   onMembers(cb: (members: Member[]) => void): () => void;
@@ -56,6 +59,7 @@ export function createLocalBackend(): Backend {
 
   return {
     store,
+    cave: createLocalCave(),
     onSession(cb) {
       sessionCbs.add(cb);
       cb(get<Member | null>(ME, null));
