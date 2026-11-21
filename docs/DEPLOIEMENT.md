@@ -44,13 +44,12 @@ Les notifications web ont besoin d'une paire de clés « VAPID ».
 
 ## Étape 4 : publier le site avec GitHub
 
-1. Dans votre dépôt `nos-courses` sur GitHub : **Settings > Secrets and variables > Actions > onglet Variables**, ajoutez :
-   - `SUPABASE_URL` : la Project URL de l'étape 1
-   - `SUPABASE_ANON_KEY` : la clé anon de l'étape 1
-   - `VAPID_PUBLIC_KEY` : la clé publique de l'étape 3
-2. **Settings > Pages** : dans **Source**, choisissez **GitHub Actions**.
-3. Onglet **Actions** : lancez « Publier l'app » (bouton **Run workflow**).
-   L'adresse du site s'affiche à la fin, du type `https://votre-nom.github.io/nos-courses/`.
+L'adresse du projet et sa clé publique sont enregistrées dans le fichier `.env.production` du dépôt
+(elles sont faites pour être publiques : la sécurité vient des règles de la base).
+
+1. Dans le dépôt `nos-courses` sur GitHub : **Settings > Pages**, puis dans **Source** choisissez **GitHub Actions**.
+2. Onglet **Actions** : ouvrez « Publier l'app » et cliquez sur **Run workflow**.
+   L'adresse du site s'affiche à la fin : `https://stephanechau.github.io/nos-courses/`.
 
 Ensuite, chaque modification du code envoyée sur GitHub republie le site toute seule.
 
@@ -116,7 +115,7 @@ Deux solutions simples :
 
 Un projet Supabase gratuit se met en veille après 7 jours sans aucune activité.
 Le fichier `.github/workflows/keepalive.yml` fait une petite lecture silencieuse **tous les 3 jours** : rien n'est visible pour la famille.
-Il utilise les mêmes variables que l'étape 4, il n'y a rien d'autre à faire.
+Il lit l'adresse et la clé publique dans `.env.production`, il n'y a rien d'autre à faire.
 
 À savoir : GitHub suspend les tâches planifiées d'un dépôt sans aucune modification pendant 60 jours.
 Il vous prévient alors par e-mail, et un clic sur **Enable workflow** (onglet Actions) suffit à la relancer.
