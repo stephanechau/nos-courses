@@ -287,14 +287,14 @@ export default function App({ backend }: { backend: Backend }) {
         members={members}
         items={items}
         listening={listening}
-        onToggle={(it) => backend.store.setDone(it.id, !it.done, me.id)}
+        onToggle={(it) => backend.store.setDone(it.id, !it.done, me.id).catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`))}
         onEdit={(item) => setView({ kind: 'edit', item })}
         onAdd={() => {
           setToast('');
           setView({ kind: 'add' });
         }}
         onVoice={voice}
-        onClearDone={() => backend.store.clearDone()}
+        onClearDone={() => backend.store.clearDone().catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`))}
         onSettings={() => setView({ kind: 'settings' })}
         tabs={tabs}
         showPushBanner={pushOff && !pushDismissed}
@@ -336,7 +336,7 @@ export default function App({ backend }: { backend: Backend }) {
           onDelete={
             view.kind === 'edit'
               ? async () => {
-                  await backend.store.remove(view.item.id);
+                  await backend.store.remove(view.item.id).catch((e) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`));
                   setView({ kind: 'list' });
                 }
               : undefined

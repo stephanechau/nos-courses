@@ -94,6 +94,13 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') loadMe();
   });
 
+  // Rafraîchit l'écran juste après une modification faite sur ce téléphone
+  // (le temps réel ne prévient pas toujours des suppressions).
+  const itemRefreshers = new Set<() => void>();
+  const refreshItems = () => itemRefreshers.forEach((f) => f());
+  const stockRefreshers = new Set<() => void>();
+  const refreshStock = () => stockRefreshers.forEach((f) => f());
+
   const store: ListStore = {
     subscribe(cb) {
       let items: Item[] = [];
@@ -107,11 +114,15 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const channel = sb
         .channel('items')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: `family_id=eq.${familyId}` }, refresh)
+        // Les suppressions ne passent pas par le filtre famille : on les écoute à part.
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'items' }, refresh)
         .subscribe();
+      itemRefreshers.add(refresh);
       // Rattrapage quand l'app revient au premier plan (le temps réel peut être coupé en veille).
       const onVisible = () => document.visibilityState === 'visible' && refresh();
       document.addEventListener('visibilitychange', onVisible);
       return () => {
+        itemRefreshers.delete(refresh);
         sb.removeChannel(channel);
         document.removeEventListener('visibilitychange', onVisible);
       };
@@ -129,6 +140,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         if (input.qty) patch.qty = input.qty;
         if (input.note) patch.note = input.note;
         if (Object.keys(patch).length) await sb.from('items').update(patch).eq('id', dup.id);
+        refreshItems();
         return;
       }
       const { error } = await sb.from('items').insert({
@@ -141,22 +153,31 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         added_by: by
       });
       if (error) throw error;
+      refreshItems();
     },
     async setDone(id, done, by) {
       const { error } = await sb.from('items').update({ done, done_by: done ? by : null }).eq('id', id);
       if (error) throw new Error(error.message);
+      refreshItems();
     },
     async update(id, patch) {
-      await sb
+      const { error } = await sb
         .from('items')
         .update({ name: patch.name, rayon: patch.rayon, qty: patch.qty ?? null, note: patch.note ?? null })
         .eq('id', id);
+      if (error) throw new Error(error.message);
+      refreshItems();
     },
     async remove(id) {
-      await sb.from('items').delete().eq('id', id);
+      const { error } = await sb.from('items').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      refreshItems();
     },
     async clearDone() {
-      await sb.from('items').delete().eq('done', true).eq('family_id', familyId);
+      if (!familyId) throw new Error('famille introuvable, rechargez la page');
+      const { error } = await sb.from('items').delete().eq('done', true).eq('family_id', familyId);
+      if (error) throw new Error(error.message);
+      refreshItems();
     },
     history: () => history
   };
@@ -193,10 +214,13 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const channel = sb
         .channel('stock')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock', filter: `family_id=eq.${familyId}` }, refresh)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stock' }, refresh)
         .subscribe();
+      stockRefreshers.add(refresh);
       const onVisible = () => document.visibilityState === 'visible' && refresh();
       document.addEventListener('visibilitychange', onVisible);
       return () => {
+        stockRefreshers.delete(refresh);
         sb.removeChannel(channel);
         document.removeEventListener('visibilitychange', onVisible);
       };
@@ -211,12 +235,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (dup) {
         const { error } = await sb.from('stock').update({ qty: dup.qty + it.qty, updated_by: by, updated_at: now() }).eq('id', dup.id);
         if (error) throw new Error(error.message);
+        refreshStock();
         return;
       }
       const { error } = await sb
         .from('stock')
         .insert({ family_id: familyId, name, category: it.category, detail: it.detail ?? null, qty: it.qty, updated_by: by });
       if (error) throw new Error(error.message);
+      refreshStock();
     },
     async update(id, p, by) {
       const { error } = await sb
@@ -224,14 +250,17 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         .update({ name: p.name.trim(), category: p.category, detail: p.detail ?? null, qty: p.qty, updated_by: by, updated_at: now() })
         .eq('id', id);
       if (error) throw new Error(error.message);
+      refreshStock();
     },
     async setQty(id, qty, by) {
       const { error } = await sb.from('stock').update({ qty: Math.max(0, qty), updated_by: by, updated_at: now() }).eq('id', id);
       if (error) throw new Error(error.message);
+      refreshStock();
     },
     async remove(id) {
       const { error } = await sb.from('stock').delete().eq('id', id);
       if (error) throw new Error(error.message);
+      refreshStock();
     }
   };
 
