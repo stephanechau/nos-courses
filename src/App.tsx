@@ -112,12 +112,16 @@ export default function App({ backend }: { backend: Backend }) {
   }
 
   const save = async (data: NewItem) => {
-    if (view.kind === 'edit') await backend.store.update(view.item.id, data);
-    else {
-      await backend.store.add(data, me.id);
-      say(`« ${data.name} » ajouté`);
+    try {
+      if (view.kind === 'edit') await backend.store.update(view.item.id, data);
+      else {
+        await backend.store.add(data, me.id);
+        say(`« ${data.name} » ajouté`);
+      }
+      setView({ kind: 'list' });
+    } catch (e) {
+      say(`Impossible d’enregistrer : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
     }
-    setView({ kind: 'list' });
   };
 
   return (

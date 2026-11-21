@@ -117,9 +117,11 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
     async add(input: NewItem, by: string) {
       const name = input.name.trim();
-      if (!name || !familyId) return;
+      if (!name) return;
+      if (!familyId) throw new Error('famille introuvable, rechargez la page');
       remember([name]);
-      const { data: existing } = await sb.from('items').select('id, name').eq('done', false);
+      const { data: existing, error: readError } = await sb.from('items').select('id, name').eq('done', false);
+      if (readError) throw new Error(readError.message);
       const dup = existing?.find((i) => normalize(i.name) === normalize(name));
       if (dup) {
         const patch: Record<string, string> = {};
@@ -140,7 +142,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (error) throw error;
     },
     async setDone(id, done, by) {
-      await sb.from('items').update({ done, done_by: done ? by : null }).eq('id', id);
+      const { error } = await sb.from('items').update({ done, done_by: done ? by : null }).eq('id', id);
+      if (error) throw new Error(error.message);
     },
     async update(id, patch) {
       await sb
