@@ -11,6 +11,8 @@ import { VoiceSetup } from './components/VoiceSetup';
 
 type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' };
 
+const PUSH_DISMISSED = 'nos-courses:push-banner-masque';
+
 export default function App({ backend }: { backend: Backend }) {
   const [me, setMe] = useState<Member | null | undefined>(undefined); // undefined = chargement
   const [members, setMembers] = useState<Member[]>([]);
@@ -20,7 +22,14 @@ export default function App({ backend }: { backend: Backend }) {
   const [listening, setListening] = useState(false);
   const [toast, setToast] = useState('');
   const [familyCode, setFamilyCode] = useState<string>();
-  const [isCreator, setIsCreator] = useState(false);
+  const [pushOff, setPushOff] = useState(false);
+  const [pushDismissed, setPushDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(PUSH_DISMISSED) === '1';
+    } catch {
+      return false;
+    }
+  });
   const toastTimer = useRef<number>(0);
   const handledUrl = useRef(false);
 
@@ -38,7 +47,10 @@ export default function App({ backend }: { backend: Backend }) {
     const offMembers = backend.onMembers(setMembers);
     backend.getPrefs().then(setPrefs);
     backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
-    backend.isCreator().then(setIsCreator).catch(() => {});
+    backend
+      .pushStatus()
+      .then((st) => setPushOff(st === 'off'))
+      .catch(() => {});
     return () => {
       offItems();
       offMembers();
@@ -107,13 +119,17 @@ export default function App({ backend }: { backend: Backend }) {
           setPrefs(p);
           backend
             .setPrefs(p)
-            .then(() => (p.onAdd || p.onShopping) && backend.online && say('Notifications activées sur ce téléphone'))
+            .then(() => {
+              if ((p.onAdd || p.onShopping) && backend.online) {
+                setPushOff(false);
+                say('Notifications activées sur ce téléphone');
+              }
+            })
             .catch((e) => say(e instanceof Error && e.message ? e.message : 'Impossible d’activer les notifications sur ce téléphone.'));
         }}
         onBack={() => setView({ kind: 'list' })}
         familyCode={familyCode}
         members={members}
-        isCreator={isCreator}
         onRemoveMember={(m) =>
           backend
             .removeMember(m.id)
@@ -165,6 +181,26 @@ export default function App({ backend }: { backend: Backend }) {
         onVoice={voice}
         onClearDone={() => backend.store.clearDone()}
         onSettings={() => setView({ kind: 'settings' })}
+        showPushBanner={pushOff && !pushDismissed}
+        onEnablePush={() => {
+          const p = { ...prefs, onAdd: true };
+          setPrefs(p);
+          backend
+            .setPrefs(p)
+            .then(() => {
+              setPushOff(false);
+              say('Notifications activées sur ce téléphone');
+            })
+            .catch((e) => say(e instanceof Error && e.message ? e.message : 'Impossible d’activer les notifications.'));
+        }}
+        onDismissPush={() => {
+          setPushDismissed(true);
+          try {
+            localStorage.setItem(PUSH_DISMISSED, '1');
+          } catch {
+            /* ignoré */
+          }
+        }}
       />
       {(view.kind === 'add' || view.kind === 'edit') && (
         <AddSheet

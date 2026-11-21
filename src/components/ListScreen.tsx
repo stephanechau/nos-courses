@@ -1,6 +1,6 @@
 import type { Item, Member } from '../data/types';
 import { RAYONS } from '../data/rayons';
-import { BasketIcon, BellIcon, CheckIcon, MicIcon, PathIcon, PlusIcon } from './Icons';
+import { BasketIcon, BellIcon, CheckIcon, CloseIcon, MicIcon, PathIcon, PlusIcon } from './Icons';
 
 interface Props {
   me: Member;
@@ -13,13 +13,23 @@ interface Props {
   onVoice: () => void;
   onClearDone: () => void;
   onSettings: () => void;
+  showPushBanner: boolean;
+  onEnablePush: () => void;
+  onDismissPush: () => void;
+}
+
+/** Deux premières lettres du prénom : « Stéphane » → « St ». */
+export function initials(name?: string): string {
+  const letters = [...(name ?? '').trim()];
+  if (!letters.length) return '?';
+  return letters[0].toUpperCase() + (letters[1] ?? '').toLowerCase();
 }
 
 export function Avatar({ m, size }: { m?: Member; size?: number }) {
-  const style = size ? { width: size, height: size, fontSize: Math.round(size * 0.44) } : undefined;
+  const style = size ? { width: size, height: size, fontSize: Math.round(size * 0.36) } : undefined;
   return (
     <span className="avatar" title={m?.name} style={{ background: m?.color ?? '#7a8583', ...style }}>
-      {(m?.name ?? '?').charAt(0).toUpperCase()}
+      {initials(m?.name)}
     </span>
   );
 }
@@ -60,6 +70,20 @@ export function ListScreen(p: Props) {
       </header>
 
       <main className="list">
+        {p.showPushBanner && (
+          <div className="push-banner" role="region" aria-label="Notifications">
+            <span className="push-bell">
+              <BellIcon size={20} color="#0B5453" />
+            </span>
+            <p>Être prévenu quand la famille ajoute un article ?</p>
+            <button className="push-on" onClick={p.onEnablePush}>
+              Activer
+            </button>
+            <button className="push-close" aria-label="Masquer" onClick={p.onDismissPush}>
+              <CloseIcon size={14} color="#5C6664" />
+            </button>
+          </div>
+        )}
         {p.items.length === 0 && (
           <p className="empty">
             <strong>La liste est vide</strong>

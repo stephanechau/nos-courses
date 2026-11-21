@@ -4,7 +4,7 @@ import { DEFAULT_PREFS } from './backend';
 import type { Item, ListStore, Member, NewItem, NotificationPrefs } from './types';
 import type { RayonId } from './rayons';
 import { normalize } from './rayons';
-import { subscribePush, unsubscribePush } from './push';
+import { pushStatus, subscribePush, unsubscribePush } from './push';
 
 interface ItemRow {
   id: string;
@@ -217,10 +217,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (error || !data) throw new Error('Jeton indisponible');
       return { endpoint: `${url}/functions/v1/ajout`, token: data as string };
     },
-    async isCreator() {
-      const { data } = await sb.rpc('i_created_family');
-      return data === true;
-    },
+    pushStatus,
     async removeMember(id) {
       const { error } = await sb.rpc('remove_member', { p_member: id });
       if (error) throw new Error(error.message);

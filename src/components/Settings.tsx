@@ -10,7 +10,6 @@ interface Props {
   onBack: () => void;
   familyCode?: string;
   members: Member[];
-  isCreator: boolean;
   onRemoveMember: (m: Member) => void;
   onInvite: () => void;
   onVoice: () => void;
@@ -24,7 +23,7 @@ const ROWS: { key: keyof NotificationPrefs; title: string; desc: string }[] = [
   { key: 'onShopping', title: 'Quand quelqu’un fait les courses', desc: 'Être prévenu quand un membre commence à cocher la liste.' }
 ];
 
-export function Settings({ me, prefs, familyCode, members, isCreator, onRemoveMember, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
+export function Settings({ me, prefs, familyCode, members, onRemoveMember, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string>();
   return (
@@ -78,7 +77,7 @@ export function Settings({ me, prefs, familyCode, members, isCreator, onRemoveMe
                     {m.id === me.id ? ' (vous)' : ''}
                   </strong>
                 </div>
-                {isCreator && m.id !== me.id && (
+                {m.id !== me.id && (
                   <button
                     className={`danger small${confirmRemove === m.id ? ' confirm' : ''}`}
                     onClick={() => {
@@ -95,9 +94,7 @@ export function Settings({ me, prefs, familyCode, members, isCreator, onRemoveMe
             ))}
           </div>
         </section>
-        {isCreator && (
-          <p className="hint">Une personne retirée pourra revenir en retapant le code famille. Ses articles restent dans la liste.</p>
-        )}
+        <p className="hint">Une personne retirée pourra revenir en retapant le code famille. Ses articles restent dans la liste.</p>
         <button className="secondary" onClick={onVoice}>
           Ajouter avec Siri ou l’assistant Android
         </button>

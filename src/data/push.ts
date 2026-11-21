@@ -32,3 +32,12 @@ export async function unsubscribePush(sb: SupabaseClient): Promise<void> {
   await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
   await sub.unsubscribe();
 }
+
+/** Ce téléphone reçoit-il déjà les notifications ? */
+export async function pushStatus(): Promise<'on' | 'off' | 'unsupported'> {
+  if (!VAPID_PUBLIC || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return 'unsupported';
+  if (Notification.permission === 'denied') return 'unsupported';
+  if (Notification.permission !== 'granted') return 'off';
+  const reg = await navigator.serviceWorker.ready;
+  return (await reg.pushManager.getSubscription()) ? 'on' : 'off';
+}
