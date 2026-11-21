@@ -71,6 +71,7 @@ function Pill({ it, by, emoji, live, onToggle, onEdit }: { it: Item; by?: Member
     <li>
       <button
         ref={btn}
+        data-id={it.id}
         className={`pill-item${it.done ? ' done' : ''}`}
         onAnimationEnd={(e) => e.currentTarget.classList.remove('pop', 'squish', 'wiggle')}
         aria-pressed={it.done}
@@ -163,6 +164,28 @@ export function ListScreen(p: Props) {
     }
     prevDone.current = done.length;
   }, [done.length, todo.length, live]);
+  // « Annuler » pendant 5 secondes après chaque coche.
+  const [undo, setUndo] = useState<string | null>(null);
+  const undoTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(undoTimer.current), []);
+  const toggle = (it: Item) => {
+    if (!it.done) {
+      setUndo(it.id);
+      window.clearTimeout(undoTimer.current);
+      undoTimer.current = window.setTimeout(() => setUndo(null), 5000);
+    } else if (undo === it.id) {
+      setUndo(null);
+    }
+    p.onToggle(it);
+  };
+  const undoItem = undo ? p.items.find((i) => i.id === undo && i.done) : undefined;
+  const cancel = () => {
+    if (!undoItem) return;
+    const el = document.querySelector(`[data-id="${undoItem.id}"]`);
+    if (el) markFlight(undoItem.id, el);
+    setUndo(null);
+    p.onToggle(undoItem);
+  };
   const emojiOf = (it: Item) => emojiFor(it.name, (p.kind.rayons.find((r) => r.id === it.rayon) ?? fallback).emoji);
 
   return (
@@ -241,7 +264,7 @@ export function ListScreen(p: Props) {
             </div>
             <ul className="pills">
               {items.map((it) => (
-                <Pill key={it.id} it={it} by={byId(it.addedBy)} emoji={emojiOf(it)} live={live} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
+                <Pill key={it.id} it={it} by={byId(it.addedBy)} emoji={emojiOf(it)} live={live} onToggle={() => toggle(it)} onEdit={() => p.onEdit(it)} />
               ))}
             </ul>
           </section>
@@ -259,7 +282,7 @@ export function ListScreen(p: Props) {
             </div>
             <ul className="pills">
               {done.map((it) => (
-                <Pill key={it.id} it={it} by={byId(it.doneBy)} emoji={emojiOf(it)} live={live} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
+                <Pill key={it.id} it={it} by={byId(it.doneBy)} emoji={emojiOf(it)} live={live} onToggle={() => toggle(it)} onEdit={() => p.onEdit(it)} />
               ))}
             </ul>
           </section>
@@ -267,6 +290,14 @@ export function ListScreen(p: Props) {
         {p.items.length > 0 && <p className="bhint">Touchez un article pour le cocher, appui long pour le modifier.</p>}
       </main>
 
+      {undoItem && (
+        <div className="undo-bar" role="status" key={undoItem.id}>
+          <span>
+            {emojiOf(undoItem)} {undoItem.name} dans le chariot
+          </span>
+          <button onClick={cancel}>Annuler</button>
+        </div>
+      )}
       {!p.missing && (
         <div className="addbar">
           <button className="addbar-field" onClick={p.onAdd}>

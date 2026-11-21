@@ -299,3 +299,12 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .pill-item, .pill-emoji, .cart-icon, .cave-stepper span, .cave-ask, .bg-bubbles span, .fx-bravo { animation: none !important; }
 }
+.undo-bar {
+  position: fixed; z-index: 21; left: 50%; bottom: calc(var(--safe-bottom) + 96px); transform: translateX(-50%);
+  width: min(92vw, 420px); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px;
+  background: #17403f; color: #fff; border-radius: 999px; box-shadow: 0 12px 30px rgba(6, 50, 49, 0.35);
+  font-weight: 800; font-size: 15px; animation: fx-slide 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.undo-bar span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.undo-bar button { flex-shrink: 0; height: 40px; padding: 0 16px; border: none; border-radius: 999px; background: linear-gradient(135deg, #ffc94a, #ff7a59); color: #fff; font: inherit; font-weight: 800; }
+@keyframes fx-slide { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
