@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Member } from '../data/types';
 import { CAVE_CATS, type StockItem } from '../data/cave';
-import { Avatar } from './ListScreen';
+import { Avatar, Bubbles } from './ListScreen';
 import { BellIcon, MicIcon, PlusIcon } from './Icons';
 
 interface Props {
@@ -18,6 +18,25 @@ interface Props {
   onVoice: () => void;
   onToShopping: (item: StockItem) => void;
   onSettings: () => void;
+}
+
+/** Le chiffre bascule quand il change, et tremble en arrivant à zéro. */
+function QtyNum({ qty, low }: { qty: number; low: boolean }) {
+  const el = useRef<HTMLSpanElement>(null);
+  const prev = useRef(qty);
+  useEffect(() => {
+    const s = el.current;
+    if (!s || prev.current === qty) return;
+    prev.current = qty;
+    s.classList.remove('flip', 'shake');
+    void s.offsetWidth;
+    s.classList.add(qty === 0 ? 'shake' : 'flip');
+  }, [qty]);
+  return (
+    <span ref={el} className={low ? 'low' : ''} aria-live="polite" onAnimationEnd={(e) => e.currentTarget.classList.remove('flip', 'shake')}>
+      {qty}
+    </span>
+  );
 }
 
 export function CaveScreen(p: Props) {
@@ -37,6 +56,7 @@ export function CaveScreen(p: Props) {
 
   return (
     <div className="app bulles">
+      <Bubbles />
       <header className="bhero">
         <div className="hero-top">
           <span className="hero-hello">Hello {p.me.name} ✨</span>
@@ -106,9 +126,7 @@ export function CaveScreen(p: Props) {
                       >
                         −
                       </button>
-                      <span className={!c.durable && it.qty <= 1 ? 'low' : ''} aria-live="polite">
-                        {it.qty}
-                      </span>
+                      <QtyNum qty={it.qty} low={!c.durable && it.qty <= 1} />
                       <button
                         aria-label={`Un ${it.name} de plus`}
                         onClick={() => {

@@ -265,3 +265,37 @@ button { cursor: pointer; }
 .cave-list { list-style: none; margin: 0; padding: 0; }
 .bulles .cave-row { padding: 2px 0; }
 .bulles .cave-row .row-main { padding-left: 4px; }
+
+/* ===== Animations ===== */
+.pill-item.done .pill-name { text-decoration: line-through double; text-decoration-thickness: 1.5px; }
+.pill-item.pop { animation: fx-pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+@keyframes fx-pop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 80% { transform: scale(0.94); } 100% { transform: scale(1); } }
+.pill-item.wiggle { animation: fx-squish 0.4s ease; }
+.pill-item.wiggle .pill-emoji { display: inline-block; animation: fx-wiggle 0.4s ease 2; }
+@keyframes fx-squish { 0% { transform: scale(1); } 35% { transform: scale(0.88); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes fx-wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-18deg); } 75% { transform: rotate(18deg); } }
+.fx-spark { position: fixed; z-index: 50; width: 8px; height: 8px; border-radius: 50%; pointer-events: none; animation: fx-spark 0.6s ease-out forwards; }
+@keyframes fx-spark { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3); opacity: 0; } }
+.cart-icon.bump { animation: fx-bump 0.5s ease; }
+@keyframes fx-bump { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-7px) rotate(-10deg); } 60% { transform: translateY(0) rotate(6deg); } }
+.fx-confetti { position: fixed; z-index: 50; top: -16px; width: 9px; height: 14px; border-radius: 3px; pointer-events: none; animation: fx-fall 2s linear forwards; }
+@keyframes fx-fall { to { transform: translateY(105vh) rotate(600deg); opacity: 0.7; } }
+.fx-bravo {
+  position: fixed; z-index: 51; left: 50%; top: 38%; transform: translate(-50%, -50%); pointer-events: none;
+  background: #fff; color: #17403f; border-radius: 999px; padding: 14px 24px; box-shadow: 0 14px 40px rgba(6, 50, 49, 0.35);
+  font-family: Fredoka, Nunito, sans-serif; font-size: 24px; font-weight: 700; white-space: nowrap;
+  animation: fx-bravo 2.2s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+}
+@keyframes fx-bravo { 0% { transform: translate(-50%, -50%) scale(0); } 18% { transform: translate(-50%, -50%) scale(1); } 85% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+.bg-bubbles { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.bg-bubbles span { position: absolute; bottom: -120px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); animation: fx-rise linear infinite; }
+@keyframes fx-rise { 0% { transform: translate(0, 0); } 50% { transform: translate(14px, -60vh); } 100% { transform: translate(-8px, -125vh); } }
+.cave-stepper span.flip { display: inline-block; animation: fx-flip 0.3s cubic-bezier(0.3, 1.5, 0.5, 1); }
+@keyframes fx-flip { 0% { transform: translateY(-14px) scale(0.6); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.cave-stepper span.shake { display: inline-block; animation: fx-shake 0.45s ease; }
+@keyframes fx-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.cave-ask { transform-origin: top; animation: fx-unfold 0.35s cubic-bezier(0.3, 1.4, 0.5, 1); }
+@keyframes fx-unfold { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pill-item, .pill-emoji, .cart-icon, .cave-stepper span, .cave-ask, .bg-bubbles span, .fx-bravo { animation: none !important; }
+}

@@ -1,4 +1,5 @@
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { burst, celebrate, land, markFlight } from '../anim';
 import type { Item, Member } from '../data/types';
 import type { ListKind } from '../data/lists';
 import { emojiFor } from '../data/emoji';
@@ -42,8 +43,19 @@ export function Avatar({ m, size }: { m?: Member; size?: number }) {
 }
 
 /** Une pastille d'article : toucher pour cocher, appui long pour modifier. */
-function Pill({ it, by, emoji, onToggle, onEdit }: { it: Item; by?: Member; emoji: string; onToggle: () => void; onEdit: () => void }) {
+function Pill({ it, by, emoji, live, onToggle, onEdit }: { it: Item; by?: Member; emoji: string; live: boolean; onToggle: () => void; onEdit: () => void }) {
   const timer = useRef(0);
+  const btn = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const el = btn.current;
+    if (!el) return;
+    if (land(it.id, el)) {
+      if (it.done) window.setTimeout(() => el.classList.add('wiggle'), 600);
+    } else if (live) {
+      el.classList.add('pop');
+    }
+    // Uniquement à l’apparition de la pastille.
+  }, []);
   const long = useRef(false);
   const start = () => {
     long.current = false;
@@ -58,7 +70,9 @@ function Pill({ it, by, emoji, onToggle, onEdit }: { it: Item; by?: Member; emoj
   return (
     <li>
       <button
+        ref={btn}
         className={`pill-item${it.done ? ' done' : ''}`}
+        onAnimationEnd={(e) => e.currentTarget.classList.remove('pop', 'squish', 'wiggle')}
         aria-pressed={it.done}
         aria-label={`${it.name}${it.qty ? ` ${it.qty}` : ''}${it.done ? ', dans le chariot' : ''}. Appui long pour modifier`}
         onPointerDown={start}
@@ -68,6 +82,14 @@ function Pill({ it, by, emoji, onToggle, onEdit }: { it: Item; by?: Member; emoj
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => {
           if (long.current) return;
+          const el = btn.current;
+          if (el) {
+            if (!it.done) {
+              const r = el.getBoundingClientRect();
+              burst(r.left + r.width / 2, r.top + r.height / 2);
+            }
+            markFlight(it.id, el);
+          }
           onToggle();
         }}
       >
@@ -92,6 +114,23 @@ function Pill({ it, by, emoji, onToggle, onEdit }: { it: Item; by?: Member; emoj
   );
 }
 
+/** Grosses bulles transparentes qui montent doucement dans le fond. */
+export function Bubbles() {
+  return (
+    <div className="bg-bubbles" aria-hidden="true">
+      {[
+        [70, 8, 16],
+        [40, 30, 12],
+        [110, 62, 20],
+        [54, 80, 14],
+        [30, 92, 10]
+      ].map(([size, left, dur], i) => (
+        <span key={i} style={{ width: size, height: size, left: `${left}%`, animationDuration: `${dur}s`, animationDelay: `${-i * 3.1}s` }} />
+      ))}
+    </div>
+  );
+}
+
 export function ListScreen(p: Props) {
   const byId = (id?: string) => p.members.find((m) => m.id === id);
   const todo = p.items.filter((i) => !i.done);
@@ -106,10 +145,29 @@ export function ListScreen(p: Props) {
       items: todo.filter((i) => i.rayon === r.id || (r === fallback && !known.has(i.rayon))).sort((a, b) => a.createdAt - b.createdAt)
     }))
     .filter((s) => s.items.length > 0);
+  // Les pastilles déjà là à l'ouverture de l'écran ne rebondissent pas, seulement les nouvelles.
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setLive(true), 1200);
+    return () => window.clearTimeout(t);
+  }, []);
+  // Le chariot sautille à chaque article pris ; confettis quand tout est pris.
+  const cart = useRef<HTMLSpanElement>(null);
+  const prevDone = useRef(done.length);
+  useEffect(() => {
+    if (live && done.length > prevDone.current) {
+      cart.current?.classList.remove('bump');
+      void cart.current?.offsetWidth;
+      cart.current?.classList.add('bump');
+      if (todo.length === 0) celebrate();
+    }
+    prevDone.current = done.length;
+  }, [done.length, todo.length, live]);
   const emojiOf = (it: Item) => emojiFor(it.name, (p.kind.rayons.find((r) => r.id === it.rayon) ?? fallback).emoji);
 
   return (
     <div className="app bulles">
+      <Bubbles />
       <header className="bhero">
         <div className="hero-top">
           <span className="hero-hello">Hello {p.me.name} ✨</span>
@@ -129,7 +187,7 @@ export function ListScreen(p: Props) {
         {p.items.length > 0 && (
           <div className="cart-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Avancement des courses">
             <span className="cart-fill" style={{ width: `${shown}%` }} />
-            <span className="cart-icon" style={{ left: `calc(${shown}% - 34px)` }} aria-hidden="true">
+            <span ref={cart} className="cart-icon" onAnimationEnd={(e) => e.currentTarget.classList.remove('bump')} style={{ left: `calc(${shown}% - 34px)` }} aria-hidden="true">
               🛒
             </span>
             <span className="cart-label">
@@ -183,7 +241,7 @@ export function ListScreen(p: Props) {
             </div>
             <ul className="pills">
               {items.map((it) => (
-                <Pill key={it.id} it={it} by={byId(it.addedBy)} emoji={emojiOf(it)} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
+                <Pill key={it.id} it={it} by={byId(it.addedBy)} emoji={emojiOf(it)} live={live} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
               ))}
             </ul>
           </section>
@@ -201,7 +259,7 @@ export function ListScreen(p: Props) {
             </div>
             <ul className="pills">
               {done.map((it) => (
-                <Pill key={it.id} it={it} by={byId(it.doneBy)} emoji={emojiOf(it)} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
+                <Pill key={it.id} it={it} by={byId(it.doneBy)} emoji={emojiOf(it)} live={live} onToggle={() => p.onToggle(it)} onEdit={() => p.onEdit(it)} />
               ))}
             </ul>
           </section>
