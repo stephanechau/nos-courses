@@ -164,7 +164,7 @@ export function ListScreen(p: Props) {
     }
     prevDone.current = done.length;
   }, [done.length, todo.length, live]);
-  // « Annuler » pendant 5 secondes après chaque coche.
+  // « Annuler » pendant 2 secondes après chaque coche.
   const [undo, setUndo] = useState<string | null>(null);
   const undoTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(undoTimer.current), []);
@@ -172,7 +172,7 @@ export function ListScreen(p: Props) {
     if (!it.done) {
       setUndo(it.id);
       window.clearTimeout(undoTimer.current);
-      undoTimer.current = window.setTimeout(() => setUndo(null), 5000);
+      undoTimer.current = window.setTimeout(() => setUndo(null), 2000);
     } else if (undo === it.id) {
       setUndo(null);
     }
