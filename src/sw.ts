@@ -20,7 +20,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title ?? 'Nos courses', {
       body: data.body ?? 'La liste a été mise à jour',
       icon: 'icon-192.png',
-      badge: 'icon-192.png',
+      badge: 'badge-96.png',
       tag: data.tag ?? 'liste',
       lang: 'fr'
     })
