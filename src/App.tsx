@@ -13,9 +13,13 @@ import { Tabs, type Tab } from './components/Tabs';
 import { guessCaveCat, type NewStock, type StockItem } from './data/cave';
 import { openCarrefour } from './data/carrefour';
 import { Login } from './components/Login';
+import { RecipesScreen } from './components/RecipesScreen';
+import { RecipeSheet } from './components/RecipeSheet';
+import { RecipeView } from './components/RecipeView';
+import { sameFood, swapTarget, type Ingredient, type NewRecipe, type Recipe } from './data/recettes';
 import { VoiceSetup } from './components/VoiceSetup';
 
-type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] } | { kind: 'caveAdd' } | { kind: 'caveEdit'; item: StockItem };
+type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] } | { kind: 'caveAdd' } | { kind: 'caveEdit'; item: StockItem } | { kind: 'recipeAdd'; name?: string } | { kind: 'recipeEdit'; id: string } | { kind: 'recipeView'; id: string };
 
 const PUSH_DISMISSED = 'nos-courses:push-banner-masque';
 const TAB_KEY = 'nos-courses:onglet';
@@ -35,7 +39,7 @@ export default function App({ backend }: { backend: Backend }) {
   const [tab, setTabState] = useState<Tab>(() => {
     try {
       const t = localStorage.getItem(TAB_KEY);
-      return t === 'cave' || t === 'chinois' ? t : 'courses';
+      return t === 'cave' || t === 'chinois' || t === 'plats' ? t : 'courses';
     } catch {
       return 'courses';
     }
@@ -51,6 +55,8 @@ export default function App({ backend }: { backend: Backend }) {
   };
   const [stock, setStock] = useState<StockItem[]>([]);
   const [caveMissing, setCaveMissing] = useState(false);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipesMissing, setRecipesMissing] = useState(false);
   const [pushDismissed, setPushDismissed] = useState(() => {
     try {
       return localStorage.getItem(PUSH_DISMISSED) === '1';
@@ -87,6 +93,13 @@ export default function App({ backend }: { backend: Backend }) {
       },
       () => setCaveMissing(true)
     );
+    const offRecipes = backend.recettes.subscribe(
+      (r) => {
+        setRecipesMissing(false);
+        setRecipes(r);
+      },
+      () => setRecipesMissing(true)
+    );
     backend.getPrefs().then(setPrefs);
     backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
     backend
@@ -98,6 +111,7 @@ export default function App({ backend }: { backend: Backend }) {
       offChinois();
       offMembers();
       offCave();
+      offRecipes();
     };
   }, [backend, me]);
 
@@ -219,6 +233,102 @@ export default function App({ backend }: { backend: Backend }) {
   }
 
   const tabs = <Tabs tab={tab} onTab={setTab} />;
+
+  if (tab === 'plats') {
+    const listed = (i: Ingredient) => items.some((it) => !it.done && sameFood(it.name, i.name));
+    const inCave = (i: Ingredient) => stock.find((s) => s.qty > 0 && sameFood(s.name, i.name))?.qty ?? 0;
+    const addIngredients = async (list: Ingredient[]) => {
+      try {
+        for (const i of list) await backend.store.add({ name: i.name, rayon: LISTS.courses.guess(i.name), qty: i.qty }, me.id);
+        say(list.length === 1 ? `« ${list[0].name} » ajouté aux courses` : `${list.length} ingrédients ajoutés aux courses`);
+      } catch (e) {
+        say(`Impossible d’ajouter : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
+      }
+    };
+    const oopsR = (e: unknown) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
+    const setUpcoming = (r: Recipe, upcoming: boolean) => backend.recettes.update(r.id, { upcoming }, me.id).catch(oopsR);
+    const current = view.kind === 'recipeView' || view.kind === 'recipeEdit' ? recipes.find((r) => r.id === view.id) : undefined;
+    const saveRecipe = async (data: NewRecipe) => {
+      try {
+        if (view.kind === 'recipeEdit' && current) {
+          await backend.recettes.update(current.id, data, me.id);
+          setView({ kind: 'recipeView', id: current.id });
+        } else {
+          await backend.recettes.add(data, me.id);
+          say(`« ${data.name} » gardé dans vos idées`);
+          setView({ kind: 'list' });
+        }
+      } catch (e) {
+        say(`Impossible d’enregistrer : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
+      }
+    };
+    return (
+      <>
+        <RecipesScreen
+          me={me}
+          members={members}
+          recipes={recipes}
+          inList={(r) => r.ingredients.filter(listed).length}
+          missing={recipesMissing}
+          tabs={tabs}
+          listening={listening}
+          onOpen={(r) => setView({ kind: 'recipeView', id: r.id })}
+          onMove={(r, dir) => {
+            const s = swapTarget(recipes, r, dir);
+            if (!s) return;
+            Promise.all([backend.recettes.update(s.a.id, { position: s.posA }, me.id), backend.recettes.update(s.b.id, { position: s.posB }, me.id)]).catch(oopsR);
+          }}
+          onUpcoming={setUpcoming}
+          onAdd={() => {
+            setToast('');
+            setView({ kind: 'recipeAdd' });
+          }}
+          onVoice={() =>
+            dictate(async (names) => {
+              setView({ kind: 'recipeAdd', name: names.join(' et ') });
+            })
+          }
+          onSettings={() => setView({ kind: 'settings' })}
+        />
+        {view.kind === 'recipeView' && current && (
+          <RecipeView
+            recipe={current}
+            inList={listed}
+            inCave={inCave}
+            onAddOne={(i) => addIngredients([i])}
+            onAddMany={addIngredients}
+            onUpcoming={(u) => setUpcoming(current, u)}
+            onEdit={() => setView({ kind: 'recipeEdit', id: current.id })}
+            onClose={() => setView({ kind: 'list' })}
+          />
+        )}
+        {(view.kind === 'recipeAdd' || (view.kind === 'recipeEdit' && current)) && (
+          <RecipeSheet
+            key={view.kind === 'recipeEdit' ? view.id : 'nouvelle'}
+            editing={view.kind === 'recipeEdit' ? current : undefined}
+            initialName={view.kind === 'recipeAdd' ? view.name : undefined}
+            importRecipe={backend.importRecipe ? (u) => backend.importRecipe!(u) : undefined}
+            onSave={saveRecipe}
+            onDelete={
+              view.kind === 'recipeEdit' && current
+                ? async () => {
+                    await backend.recettes.remove(current.id).catch(oopsR);
+                    say(`« ${current.name} » supprimée`);
+                    setView({ kind: 'list' });
+                  }
+                : undefined
+            }
+            onClose={() => setView(view.kind === 'recipeEdit' && current ? { kind: 'recipeView', id: current.id } : { kind: 'list' })}
+          />
+        )}
+        {toast && (
+          <div className="toast" role="status">
+            {toast}
+          </div>
+        )}
+      </>
+    );
+  }
 
   if (tab === 'cave') {
     const saveStock = async (data: NewStock) => {

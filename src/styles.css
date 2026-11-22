@@ -311,3 +311,42 @@ button { cursor: pointer; }
 .undo-bar span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .undo-bar button { flex-shrink: 0; height: 40px; padding: 0 16px; border: none; border-radius: 999px; background: linear-gradient(135deg, #ffc94a, #ff7a59); color: #fff; font: inherit; font-weight: 800; }
 @keyframes fx-slide { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* ===== Idées de plats ===== */
+.tabs button { font-size: 13px; padding: 0 2px; white-space: nowrap; min-width: 0; letter-spacing: -0.2px; }
+@media (min-width: 420px) { .tabs button { font-size: 15px; } }
+.recipe-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.recipe-row { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 8px; border-radius: 20px; background: #eff7f6; border: 2px solid #cfe7e3; }
+.recipe-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: none; background: none; padding: 4px 0; text-align: left; color: inherit; }
+.recipe-emoji { font-size: 26px; line-height: 1; }
+.recipe-text { min-width: 0; display: flex; flex-direction: column; }
+.recipe-text strong { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.recipe-text small { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.recipe-next { flex-shrink: 0; border: 2px solid #cfe7e3; background: #fff; color: var(--accent-ink); border-radius: 999px; padding: 7px 10px; font-size: 12.5px; font-weight: 800; }
+.recipe-move { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+.recipe-move button { width: 36px; height: 24px; border-radius: 9px; border: none; background: #fff; color: var(--accent); font-size: 12px; font-weight: 800; }
+.recipe-move button:disabled { opacity: 0.3; }
+.recipe-sheet .sheet-head h2 { font-family: Fredoka, Nunito, sans-serif; font-weight: 600; }
+.recipe-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rchip { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--accent); background: var(--accent); color: #fff; font-size: 14px; font-weight: 800; text-decoration: none; flex-shrink: 0; }
+.rchip.ghost { background: #fff; color: var(--accent-ink); border-color: #cfe7e3; }
+.rchip:disabled { opacity: 0.5; }
+.recipe-note { margin: 6px 2px 0; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.ing-list { list-style: none; margin: 0; padding: 0; }
+.ing-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #e3efed; }
+.ing-row:first-child { border-top: none; }
+.ing-name { flex: 1; min-width: 0; font-weight: 800; font-size: 15.5px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; }
+.ing-qty { color: var(--muted); font-weight: 700; font-size: 13.5px; }
+.ing-cave { flex-basis: 100%; font-size: 12.5px; font-weight: 800; color: #8a4b12; }
+.ing-add { flex-shrink: 0; border: 2px solid #cfe7e3; background: #eff7f6; color: var(--accent-ink); border-radius: 999px; padding: 8px 12px; font-size: 13.5px; font-weight: 800; }
+.ing-add.ok { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rs-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rs-ings { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-ings li { display: inline-flex; align-items: center; gap: 2px; padding: 4px 4px 4px 12px; border-radius: 999px; background: #eff7f6; border: 2px solid #cfe7e3; font-weight: 800; font-size: 14px; max-width: 100%; }
+.rs-ings li > span { overflow-wrap: anywhere; }
+.rs-ings button { width: 28px; height: 28px; border-radius: 50%; border: none; background: #fff; color: var(--muted); font-size: 17px; font-weight: 800; flex-shrink: 0; }
+.rs-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.rs-add .text-input { margin-top: 0; flex: 1; min-width: 0; }
+.rs-search { margin-top: 10px; height: auto; min-height: 38px; padding: 6px 14px; flex-wrap: wrap; }
+.rs-check { display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 15px; }
+.rs-check input { width: 22px; height: 22px; accent-color: var(--accent); }

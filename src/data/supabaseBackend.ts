@@ -6,6 +6,7 @@ import type { ListId } from './lists';
 import { normalize } from './rayons';
 import { pushStatus, subscribePush, unsubscribePush } from './push';
 import type { CaveCat, CaveStore, StockItem } from './cave';
+import type { ImportedRecipe, Ingredient, Recipe, RecipeStore } from './recettes';
 
 interface ItemRow {
   id: string;
@@ -101,6 +102,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const refreshItems = () => itemRefreshers.forEach((f) => f());
   const stockRefreshers = new Set<() => void>();
   const refreshStock = () => stockRefreshers.forEach((f) => f());
+  const recipeRefreshers = new Set<() => void>();
+  const refreshRecipes = () => recipeRefreshers.forEach((f) => f());
 
   const makeStore = (list: ListId): ListStore => {
     // Avant l'installation du magasin chinois, la colonne « list » n'existe pas : tout est « courses ».
@@ -281,10 +284,112 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     }
   };
 
+  interface RecipeRow {
+    id: string;
+    name: string;
+    emoji: string;
+    ingredients: Ingredient[] | null;
+    url: string | null;
+    upcoming: boolean;
+    position: number;
+    updated_at: string;
+  }
+  const toRecipe = (r: RecipeRow): Recipe => ({
+    id: r.id,
+    name: r.name,
+    emoji: r.emoji,
+    ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+    url: r.url ?? undefined,
+    upcoming: r.upcoming,
+    position: r.position,
+    updatedAt: Date.parse(r.updated_at)
+  });
+  const topOf = async (upcoming: boolean) => {
+    const { data } = await sb.from('recipes').select('position').eq('upcoming', upcoming).order('position').limit(1);
+    return data?.length ? (data[0].position as number) - 1 : 0;
+  };
+  const recettes: RecipeStore = {
+    subscribe(cb, onMissing) {
+      const refresh = async () => {
+        const { data, error } = await sb.from('recipes').select('id, name, emoji, ingredients, url, upcoming, position, updated_at');
+        if (error) {
+          // Table absente : les idées de plats n'ont pas encore été installées dans Supabase.
+          if (/recipes|relation|schema cache/i.test(error.message)) onMissing?.();
+          return;
+        }
+        cb((data ?? []).map((r) => toRecipe(r as RecipeRow)));
+      };
+      refresh();
+      const channel = sb
+        .channel('recipes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes', filter: `family_id=eq.${familyId}` }, refresh)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'recipes' }, refresh)
+        .subscribe();
+      recipeRefreshers.add(refresh);
+      const onVisible = () => document.visibilityState === 'visible' && refresh();
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        recipeRefreshers.delete(refresh);
+        sb.removeChannel(channel);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
+    },
+    async add(r, by) {
+      if (!familyId) throw new Error('famille introuvable, rechargez la page');
+      const { error } = await sb.from('recipes').insert({
+        family_id: familyId,
+        name: r.name.trim(),
+        emoji: r.emoji,
+        ingredients: r.ingredients,
+        url: r.url ?? null,
+        upcoming: r.upcoming,
+        position: await topOf(r.upcoming),
+        updated_by: by
+      });
+      if (error) throw new Error(error.message);
+      refreshRecipes();
+    },
+    async update(id, p, by) {
+      const patch: Record<string, unknown> = { updated_by: by, updated_at: now() };
+      if (p.name !== undefined) patch.name = p.name.trim();
+      if (p.emoji !== undefined) patch.emoji = p.emoji;
+      if (p.ingredients !== undefined) patch.ingredients = p.ingredients;
+      if (p.url !== undefined) patch.url = p.url || null;
+      if (p.upcoming !== undefined) {
+        patch.upcoming = p.upcoming;
+        if (p.position === undefined) patch.position = await topOf(p.upcoming);
+      }
+      if (p.position !== undefined) patch.position = p.position;
+      const { error } = await sb.from('recipes').update(patch).eq('id', id);
+      if (error) throw new Error(error.message);
+      refreshRecipes();
+    },
+    async remove(id) {
+      const { error } = await sb.from('recipes').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      refreshRecipes();
+    }
+  };
+
   return {
     store,
     chinois,
     cave,
+    recettes,
+    async importRecipe(link: string): Promise<ImportedRecipe> {
+      const { data, error } = await sb.functions.invoke('recette', { body: { url: link } });
+      if (error) {
+        let msg = '';
+        try {
+          msg = (await (error as { context?: Response }).context?.json())?.error ?? '';
+        } catch {
+          /* ignoré */
+        }
+        if (/not found|404/i.test(error.message) && !msg) throw new Error('la lecture des liens n’est pas encore installée');
+        throw new Error(msg || error.message);
+      }
+      return data as ImportedRecipe;
+    },
     onSession(cb) {
       sessionCbs.add(cb);
       loadMe();

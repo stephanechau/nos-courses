@@ -1,12 +1,13 @@
-export type Tab = 'courses' | 'chinois' | 'cave';
+export type Tab = 'courses' | 'chinois' | 'plats' | 'cave';
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'courses', emoji: '🛒', label: 'Courses' },
   { id: 'chinois', emoji: '🥢', label: 'Chinois' },
+  { id: 'plats', emoji: '🍲', label: 'Plats' },
   { id: 'cave', emoji: '📦', label: 'Cave' }
 ];
 
-/** Les onglets de l'en-tête : courses, magasin chinois et cave. */
+/** Les onglets de l'en-tête : courses, magasin chinois, idées de plats et cave. */
 export function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   return (
     <div className="tabs" role="tablist" aria-label="Listes">
