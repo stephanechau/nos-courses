@@ -212,14 +212,6 @@ export default function App({ backend }: { backend: Backend }) {
         }}
         onBack={() => setView({ kind: 'list' })}
         familyCode={familyCode}
-        onFamilyCode={
-          backend.setFamilyCode
-            ? async (code) => {
-                const saved = await backend.setFamilyCode!(code);
-                setFamilyCode(saved);
-              }
-            : undefined
-        }
         members={members}
         onRemoveMember={(m) =>
           backend

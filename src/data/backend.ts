@@ -28,8 +28,6 @@ export interface Backend {
   inviterName(familyCode: string): Promise<string | undefined>;
   /** Code et lien d'invitation de sa propre famille. */
   invitation(): Promise<{ code: string; link: string } | undefined>;
-  /** Remplace le code famille (absent en mode test). Renvoie le code enregistré. */
-  setFamilyCode?(code: string): Promise<string>;
   /** Adresse et jeton personnel pour les raccourcis vocaux (absent en mode test). */
   voiceSetup?(): Promise<{ endpoint: string; token: string }>;
   /** Notifications sur ce téléphone : actives, à activer, ou impossibles ici. */

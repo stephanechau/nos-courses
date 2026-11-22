@@ -9,8 +9,6 @@ interface Props {
   onChange: (p: NotificationPrefs) => void;
   onBack: () => void;
   familyCode?: string;
-  /** Change le code famille ; absent en mode test. */
-  onFamilyCode?: (code: string) => Promise<void>;
   members: Member[];
   onRemoveMember: (m: Member) => void;
   onInvite: () => void;
@@ -25,47 +23,9 @@ const ROWS: { key: keyof NotificationPrefs; title: string; desc: string }[] = [
   { key: 'onShopping', title: 'Quand quelqu’un fait les courses', desc: 'Être prévenu quand un membre commence à cocher la liste.' }
 ];
 
-export function Settings({ me, prefs, familyCode, onFamilyCode, members, onRemoveMember, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
+export function Settings({ me, prefs, familyCode, members, onRemoveMember, onChange, onBack, onInvite, onVoice, onLogout }: Props) {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string>();
-  const [codeEdit, setCodeEdit] = useState(false);
-  const [codeDraft, setCodeDraft] = useState('');
-  const [codeConfirm, setCodeConfirm] = useState(false);
-  const [codeMsg, setCodeMsg] = useState('');
-  const [codeBusy, setCodeBusy] = useState(false);
-  const cleanCode = codeDraft.replace(/\s/g, '').toUpperCase();
-  const codeProblem = !cleanCode
-    ? ''
-    : !/^[A-Z0-9]+$/.test(cleanCode)
-      ? 'Seulement des lettres et des chiffres, sans accent.'
-      : cleanCode.length < 6
-        ? `Encore ${6 - cleanCode.length} caractère${6 - cleanCode.length > 1 ? 's' : ''} au minimum.`
-        : cleanCode.length > 20
-          ? '20 caractères au maximum.'
-          : cleanCode === familyCode
-            ? 'C’est déjà votre code actuel.'
-            : '';
-  const closeCode = () => {
-    setCodeEdit(false);
-    setCodeConfirm(false);
-    setCodeDraft('');
-  };
-  const saveCode = async () => {
-    if (!onFamilyCode || codeProblem || !cleanCode) return;
-    if (!codeConfirm) return setCodeConfirm(true);
-    setCodeBusy(true);
-    setCodeMsg('');
-    try {
-      await onFamilyCode(cleanCode);
-      closeCode();
-      setCodeMsg(`C’est fait. Le nouveau code est ${cleanCode}.`);
-    } catch (e) {
-      setCodeConfirm(false);
-      setCodeMsg(e instanceof Error && e.message ? e.message : 'Impossible de changer le code.');
-    } finally {
-      setCodeBusy(false);
-    }
-  };
   return (
     <div className="app">
       <header className="page-head">
@@ -144,66 +104,6 @@ export function Settings({ me, prefs, familyCode, onFamilyCode, members, onRemov
         {familyCode && (
           <p className="hint" style={{ textAlign: 'center' }}>
             Code famille : <strong style={{ letterSpacing: 3, color: 'var(--text)' }}>{familyCode}</strong>
-            {onFamilyCode && !codeEdit && (
-              <>
-                {' · '}
-                <button
-                  className="link-btn"
-                  onClick={() => {
-                    setCodeEdit(true);
-                    setCodeMsg('');
-                  }}
-                >
-                  Changer
-                </button>
-              </>
-            )}
-          </p>
-        )}
-        {codeEdit && (
-          <div className="card code-edit">
-            <label htmlFor="new-code" className="field-label">
-              Nouveau code famille
-            </label>
-            <input
-              id="new-code"
-              className="text-input"
-              autoFocus
-              value={codeDraft}
-              maxLength={24}
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Par exemple CHAU2026"
-              onChange={(e) => {
-                setCodeDraft(e.target.value);
-                setCodeConfirm(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveCode();
-                if (e.key === 'Escape') closeCode();
-              }}
-            />
-            <p className="hint">
-              {codeProblem ||
-                'De 6 à 20 lettres ou chiffres. Les membres déjà connectés restent connectés. Seuls les nouveaux devront taper ce code.'}
-            </p>
-            {codeConfirm && (
-              <p className="hint" style={{ color: 'var(--text)' }}>
-                L’ancien code <strong>{familyCode}</strong> ne marchera plus. Touchez encore pour confirmer.
-              </p>
-            )}
-            <button className={codeConfirm ? 'primary' : 'secondary'} disabled={!cleanCode || !!codeProblem || codeBusy} onClick={saveCode}>
-              {codeBusy ? 'Enregistrement…' : codeConfirm ? `Confirmer : le code devient ${cleanCode}` : 'Enregistrer ce code'}
-            </button>
-            <button className="link-btn" onClick={closeCode}>
-              Annuler
-            </button>
-          </div>
-        )}
-        {codeMsg && (
-          <p className="hint" role="status" style={{ textAlign: 'center' }}>
-            {codeMsg}
           </p>
         )}
         <button className="danger" onClick={() => (confirmLeave ? onLogout() : setConfirmLeave(true))}>

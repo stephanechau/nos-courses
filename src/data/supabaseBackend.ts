@@ -451,15 +451,6 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!data) return undefined;
       return { code: data as string, link: `${location.origin}${location.pathname}?invitation=${data}` };
     },
-    async setFamilyCode(code) {
-      const { data, error } = await sb.rpc('set_family_code', { p_code: code });
-      if (error) {
-        if (/set_family_code|function/i.test(error.message) && !/code doit|déjà pris/.test(error.message))
-          throw new Error('Il reste une petite étape à faire dans Supabase pour pouvoir changer le code.');
-        throw new Error(error.message);
-      }
-      return data as string;
-    },
     async voiceSetup() {
       const { data, error } = await sb.rpc('my_voice_token');
       if (error || !data) throw new Error('Jeton indisponible');
