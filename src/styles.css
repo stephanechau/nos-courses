@@ -223,7 +223,9 @@ button { cursor: pointer; }
 .cart-track { position: relative; height: 44px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
 .cart-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, #ffc94a, #ff7a59); transition: width 0.35s ease; }
 .cart-icon { position: absolute; top: 7px; font-size: 24px; transition: left 0.35s ease; }
-.cart-label { position: absolute; right: 16px; top: 0; line-height: 44px; font-weight: 800; font-size: 14px; }
+.cart-label { position: absolute; right: 16px; top: 0; line-height: 44px; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.cart-label.left { right: auto; left: 16px; }
+.cart-label strong { font-weight: 900; font-size: 16px; }
 .bstats { display: flex; gap: 8px; flex-wrap: wrap; }
 .bstats span { background: rgba(255, 255, 255, 0.18); border-radius: 999px; padding: 7px 14px; font-weight: 800; font-size: 14px; }
 

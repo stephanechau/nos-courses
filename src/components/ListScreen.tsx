@@ -213,8 +213,9 @@ export function ListScreen(p: Props) {
             <span ref={cart} className="cart-icon" onAnimationEnd={(e) => e.currentTarget.classList.remove('bump')} style={{ left: `calc(${shown}% - 34px)` }} aria-hidden="true">
               🛒
             </span>
-            <span className="cart-label">
-              {done.length} / {p.items.length} dans le chariot
+            {/* Le texte se met du côté où le caddie n'est pas, pour ne jamais se chevaucher. */}
+            <span className={`cart-label${shown > 50 ? ' left' : ''}`}>
+              <strong>{pct} %</strong> · {done.length} / {p.items.length} dans le chariot
             </span>
           </div>
         )}
