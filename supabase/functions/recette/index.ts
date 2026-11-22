@@ -1,6 +1,6 @@
 // Lit une page de recette (Marmiton, 750g, Cuisine AZ, Journal des Femmes…) et renvoie son nom et ses ingrédients.
 // Ces sites décrivent leurs recettes dans un bloc « application/ld+json » de type Recipe : c'est lui qu'on lit.
-// Appel : POST { url } avec la session de l'app. Réponse : { name, ingredients: string[] } ou { error }.
+// Appel : POST { url } avec la session de l'app. Réponse : { name, ingredients: string[], steps: string[] } ou { error }.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,6 +53,25 @@ function findRecipe(node: any): any {
   return findRecipe(node['@graph']) ?? findRecipe(node.mainEntity);
 }
 
+/** Étapes : texte, liste de textes, HowToStep ou HowToSection. */
+// deno-lint-ignore no-explicit-any
+function stepsOf(node: any): string[] {
+  if (!node) return [];
+  if (typeof node === 'string')
+    return decode(node.replace(/<br\s*\/?>|<\/p>|<\/li>/gi, '\n'))
+      ? node
+          .replace(/<br\s*\/?>|<\/p>|<\/li>/gi, '\n')
+          .split(/\n+/)
+          .map(decode)
+          .filter(Boolean)
+      : [];
+  if (Array.isArray(node)) return node.flatMap(stepsOf);
+  if (node.itemListElement) return stepsOf(node.itemListElement);
+  if (node.text) return stepsOf(String(node.text));
+  if (node.name) return stepsOf(String(node.name));
+  return [];
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   let url: URL | undefined;
@@ -90,7 +109,8 @@ Deno.serve(async (req) => {
     const raw = r.recipeIngredient ?? r.ingredients ?? [];
     const ingredients = (Array.isArray(raw) ? raw : [raw]).map((x: unknown) => decode(String(x))).filter(Boolean).slice(0, 60);
     if (!ingredients.length) continue;
-    return reply({ name: decode(String(r.name ?? '')).slice(0, 120), ingredients });
+    const steps = stepsOf(r.recipeInstructions).slice(0, 40);
+    return reply({ name: decode(String(r.name ?? '')).slice(0, 120), ingredients, steps });
   }
   return reply({ error: 'Je n’ai pas trouvé de liste d’ingrédients sur cette page.' }, 422);
 });

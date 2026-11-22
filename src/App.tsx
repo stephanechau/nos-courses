@@ -300,6 +300,11 @@ export default function App({ backend }: { backend: Backend }) {
             onUpcoming={(u) => setUpcoming(current, u)}
             onIngredients={(list) => backend.recettes.update(current.id, { ingredients: list }, me.id).catch(oopsR)}
             onEdit={() => setView({ kind: 'recipeEdit', id: current.id })}
+            onDelete={async () => {
+              await backend.recettes.remove(current.id).catch(oopsR);
+              say(`« ${current.name} » supprimée`);
+              setView({ kind: 'list' });
+            }}
             onClose={() => setView({ kind: 'list' })}
           />
         )}

@@ -23,6 +23,7 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
   // Tant qu'on n'a pas touché aux ingrédients, ils suivent le plat reconnu dans le carnet.
   const [fromCarnet, setFromCarnet] = useState<string | undefined>(editing ? undefined : start?.name);
   const [url, setUrl] = useState(editing?.url ?? '');
+  const [steps, setSteps] = useState((editing?.steps ?? []).join('\n'));
   const [upcoming, setUpcoming] = useState(editing?.upcoming ?? true);
   const [newIng, setNewIng] = useState('');
   const [link, setLink] = useState('');
@@ -79,8 +80,10 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
       setIngs(list);
       setFromCarnet(undefined);
       setUrl(link.trim());
+      if (r.steps?.length) setSteps(r.steps.join('\n'));
       if (!name.trim() && r.name) setName(r.name);
-      setLinkMsg(`${list.length} ingrédient${list.length > 1 ? 's' : ''} récupéré${list.length > 1 ? 's' : ''}.`);
+      const n = r.steps?.length ?? 0;
+      setLinkMsg(`${list.length} ingrédient${list.length > 1 ? 's' : ''} récupéré${list.length > 1 ? 's' : ''}${n ? ` et ${n} étape${n > 1 ? 's' : ''}` : ''}.`);
       setLink('');
     } catch (e) {
       setLinkMsg(`Lecture impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
@@ -93,7 +96,7 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
     const typed = name.trim();
     if (!typed) return;
     const n = typed.charAt(0).toUpperCase() + typed.slice(1);
-    onSave({ name: n, emoji: emoji || emojiFor(n, '🍽️'), ingredients: ings, url: url || undefined, upcoming });
+    onSave({ name: n, emoji: emoji || emojiFor(n, '🍽️'), ingredients: ings, url: url || undefined, upcoming, steps: steps.split('\n').map((x) => x.trim()).filter(Boolean) });
   };
 
   return (
@@ -201,6 +204,22 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
               🔎 Chercher « {name.trim() || 'une recette'} » sur Marmiton
             </a>
             {url && !linkMsg && <p className="recipe-note">Lien enregistré : {url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="rs-steps" className="field-label">
+              <span>
+                Préparation <small>(une étape par ligne)</small>
+              </span>
+            </label>
+            <textarea
+              id="rs-steps"
+              className="text-input rs-steps"
+              value={steps}
+              onChange={(e) => setSteps(e.target.value)}
+              placeholder={'Faire revenir l’oignon et la viande.\nAjouter la sauce tomate, laisser mijoter 20 min.\n…'}
+              rows={5}
+            />
           </div>
 
           {!editing && (

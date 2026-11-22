@@ -15,6 +15,8 @@ export interface Recipe {
   ingredients: Ingredient[];
   /** Lien vers la recette complète, s'il y en a un. */
   url?: string;
+  /** Étapes de préparation. */
+  steps?: string[];
   /** Dans « Prochaines recettes » (sinon dans la bibliothèque). */
   upcoming: boolean;
   /** Ordre dans sa rubrique : le plus petit en haut. */
@@ -22,7 +24,7 @@ export interface Recipe {
   updatedAt: number;
 }
 
-export type NewRecipe = Pick<Recipe, 'name' | 'emoji' | 'ingredients' | 'url' | 'upcoming'>;
+export type NewRecipe = Pick<Recipe, 'name' | 'emoji' | 'ingredients' | 'url' | 'upcoming' | 'steps'>;
 
 export interface RecipeStore {
   /** onMissing est appelé si les recettes ne sont pas encore installées dans la base. */
@@ -36,6 +38,7 @@ export interface RecipeStore {
 export interface ImportedRecipe {
   name: string;
   ingredients: string[];
+  steps?: string[];
 }
 
 const keys = (r: CarnetRecette) => [r.name, ...r.aliases].map(normalize);

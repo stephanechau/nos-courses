@@ -354,3 +354,17 @@ button { cursor: pointer; }
 .qty-tip span { flex: 1 1 180px; }
 .qty-btn { border: 2px dashed #f0b48f; background: #fff8f1; color: #8a4b12; border-radius: 10px; padding: 2px 8px; font-size: 13.5px; font-weight: 800; }
 .qty-input { width: 96px; height: 34px; border: 2px solid #ff7a59; border-radius: 10px; padding: 0 8px; font-size: 16px; font-weight: 800; color: var(--ink, #17403f); }
+.rs-steps { height: auto; min-height: 120px; padding: 12px 16px; line-height: 1.4; resize: vertical; font-family: inherit; }
+.add-confirm { display: flex; flex-direction: column; gap: 6px; background: #fff4e0; border-radius: 18px; padding: 12px 14px; color: #7a3e12; }
+.add-confirm strong { font-size: 16px; }
+.add-confirm span { font-size: 13.5px; font-weight: 700; line-height: 1.35; }
+.add-confirm-btns { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.rchip.danger-chip { color: #a1302b; }
+.rchip.danger-on { background: #a1302b; border-color: #a1302b; color: #fff; }
+.steps { display: flex; flex-direction: column; gap: 8px; border-top: 2px solid #e3efed; padding-top: 14px; }
+.steps h3 { margin: 0; font-family: Fredoka, Nunito, sans-serif; font-weight: 600; font-size: 20px; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.steps li button { width: 100%; display: flex; gap: 10px; align-items: flex-start; text-align: left; border: none; background: #eff7f6; color: var(--ink, #17403f); border-radius: 16px; padding: 12px; font-size: 16px; font-weight: 700; line-height: 1.45; }
+.steps li button.done { opacity: 0.5; }
+.steps li button.done span:last-child { text-decoration: line-through; }
+.step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #ffc94a, #ff7a59); color: #fff; font-weight: 800; font-size: 14px; }

@@ -290,16 +290,20 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     emoji: string;
     ingredients: Ingredient[] | null;
     url: string | null;
+    steps?: string | null;
     upcoming: boolean;
     position: number;
     updated_at: string;
   }
+  // La colonne « steps » arrive avec un petit SQL : tant qu'elle manque, on fait sans.
+  let hasSteps = true;
   const toRecipe = (r: RecipeRow): Recipe => ({
     id: r.id,
     name: r.name,
     emoji: r.emoji,
     ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
     url: r.url ?? undefined,
+    steps: r.steps ? r.steps.split('\n').filter(Boolean) : undefined,
     upcoming: r.upcoming,
     position: r.position,
     updatedAt: Date.parse(r.updated_at)
@@ -311,13 +315,18 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const recettes: RecipeStore = {
     subscribe(cb, onMissing) {
       const refresh = async () => {
-        const { data, error } = await sb.from('recipes').select('id, name, emoji, ingredients, url, upcoming, position, updated_at');
+        const cols = 'id, name, emoji, ingredients, url, upcoming, position, updated_at';
+        let { data, error } = await sb.from('recipes').select(hasSteps ? `${cols}, steps` : cols as string);
+        if (error && hasSteps && /steps/i.test(error.message)) {
+          hasSteps = false;
+          ({ data, error } = await sb.from('recipes').select(cols));
+        }
         if (error) {
           // Table absente : les idées de plats n'ont pas encore été installées dans Supabase.
           if (/recipes|relation|schema cache/i.test(error.message)) onMissing?.();
           return;
         }
-        cb((data ?? []).map((r) => toRecipe(r as RecipeRow)));
+        cb(((data ?? []) as unknown as RecipeRow[]).map(toRecipe));
       };
       refresh();
       const channel = sb
@@ -342,6 +351,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         emoji: r.emoji,
         ingredients: r.ingredients,
         url: r.url ?? null,
+        ...(hasSteps ? { steps: r.steps?.length ? r.steps.join('\n') : null } : {}),
         upcoming: r.upcoming,
         position: await topOf(r.upcoming),
         updated_by: by
@@ -355,6 +365,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (p.emoji !== undefined) patch.emoji = p.emoji;
       if (p.ingredients !== undefined) patch.ingredients = p.ingredients;
       if (p.url !== undefined) patch.url = p.url || null;
+      if (p.steps !== undefined && hasSteps) patch.steps = p.steps.length ? p.steps.join('\n') : null;
       if (p.upcoming !== undefined) {
         patch.upcoming = p.upcoming;
         if (p.position === undefined) patch.position = await topOf(p.upcoming);

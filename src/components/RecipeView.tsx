@@ -14,15 +14,20 @@ interface Props {
   /** Enregistre des quantités recalculées. */
   onIngredients: (list: Ingredient[]) => void;
   onEdit: () => void;
+  onDelete: () => void;
   onClose: () => void;
 }
 
 /** Une recette ouverte : ses ingrédients, chacun avec « Ajouter ». */
-export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onUpcoming, onIngredients, onEdit, onClose }: Props) {
+export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onUpcoming, onIngredients, onEdit, onDelete, onClose }: Props) {
   const [cooked, setCooked] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [qtyMsg, setQtyMsg] = useState('');
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [doneSteps, setDoneSteps] = useState<Set<number>>(() => new Set());
+  const steps = r.steps ?? [];
   const factor = currentFactor(r.ingredients);
   const commit = () => {
     if (editing === null) return;
@@ -66,15 +71,53 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
               🔥 Mettre dans Prochaines
             </button>
           )}
+          <button className="rchip ghost" onClick={onEdit}>
+            ✎ Modifier
+          </button>
+          <button className={`rchip ${confirmDelete ? 'danger-on' : 'ghost danger-chip'}`} onClick={() => (confirmDelete ? onDelete() : setConfirmDelete(true))}>
+            {confirmDelete ? 'Confirmer la suppression' : '🗑 Supprimer'}
+          </button>
           {r.url && (
             <a className="rchip ghost" href={r.url} target="_blank" rel="noreferrer">
               🔗 Voir la recette
             </a>
           )}
-          <button className="rchip ghost" onClick={onEdit}>
-            ✎ Modifier
-          </button>
         </div>
+        {confirmDelete && (
+          <p className="recipe-note">
+            Touchez encore « Confirmer la suppression » pour supprimer {r.name} définitivement.{' '}
+            <button className="link-btn" onClick={() => setConfirmDelete(false)}>
+              Annuler
+            </button>
+          </p>
+        )}
+        {missing.length > 0 &&
+          (confirmAll ? (
+            <div className="add-confirm" role="alertdialog" aria-label="Confirmer l’ajout">
+              <strong>
+                Ajouter {missing.length} ingrédient{missing.length > 1 ? 's' : ''} aux courses ?
+              </strong>
+              <span>{missing.map((i) => i.name.toLowerCase()).join(', ')}</span>
+              <div className="add-confirm-btns">
+                <button
+                  className="push-on"
+                  onClick={() => {
+                    setConfirmAll(false);
+                    onAddMany(missing);
+                  }}
+                >
+                  Oui, ajouter
+                </button>
+                <button className="link-btn" onClick={() => setConfirmAll(false)}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button className="primary" onClick={() => setConfirmAll(true)}>
+              + Tout ajouter aux courses ({missing.length})
+            </button>
+          ))}
         {cooked && <p className="recipe-note">Rangée dans la bibliothèque. Elle y reste pour la prochaine fois.</p>}
 
         {r.ingredients.some((i) => splitQty(i.base ?? i.qty)) && (
@@ -145,11 +188,39 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
         </ul>
         {r.ingredients.length === 0 && <p className="recipe-note">Pas encore d’ingrédients. Touchez « Modifier » pour en ajouter.</p>}
 
-        {missing.length > 0 && (
-          <button className="primary" onClick={() => onAddMany(missing)}>
-            + Tout ajouter aux courses ({missing.length})
-          </button>
-        )}
+        <div className="steps">
+          <h3>Préparation</h3>
+          {steps.length > 0 ? (
+            <>
+              <ol>
+                {steps.map((st, k) => (
+                  <li key={k}>
+                    <button
+                      className={doneSteps.has(k) ? 'done' : ''}
+                      aria-pressed={doneSteps.has(k)}
+                      onClick={() =>
+                        setDoneSteps((d) => {
+                          const n = new Set(d);
+                          if (n.has(k)) n.delete(k);
+                          else n.add(k);
+                          return n;
+                        })
+                      }
+                    >
+                      <span className="step-num">{k + 1}</span>
+                      <span>{st}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <p className="recipe-note">Touchez une étape quand elle est faite.</p>
+            </>
+          ) : (
+            <p className="recipe-note">
+              Pas encore d’étapes. Touchez « Modifier » pour les écrire, ou collez le lien d’une recette pour les récupérer.
+            </p>
+          )}
+        </div>
       </section>
     </>
   );
