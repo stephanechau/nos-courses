@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { currentFactor, rescale, resetQty, splitQty, type Ingredient, type Recipe } from '../data/recettes';
+import { carnetSteps, currentFactor, rescale, resetQty, splitQty, type Ingredient, type Recipe } from '../data/recettes';
 import { CloseIcon } from './Icons';
 
 interface Props {
@@ -27,7 +27,8 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
   const [confirmAll, setConfirmAll] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [doneSteps, setDoneSteps] = useState<Set<number>>(() => new Set());
-  const steps = r.steps ?? [];
+  // Pas d'étapes enregistrées : on prend celles du carnet si le plat y est.
+  const steps = r.steps?.length ? r.steps : (carnetSteps(r.name) ?? []);
   const factor = currentFactor(r.ingredients);
   const commit = () => {
     if (editing === null) return;

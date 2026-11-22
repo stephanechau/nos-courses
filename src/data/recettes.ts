@@ -1,4 +1,5 @@
 import { CARNET, type CarnetRecette } from './carnet';
+import { ETAPES } from './carnet-etapes';
 import { normalize } from './rayons';
 
 export interface Ingredient {
@@ -260,4 +261,10 @@ export function currentFactor(list: Ingredient[]): number {
 /** Revient aux quantités d'origine. */
 export function resetQty(list: Ingredient[]): Ingredient[] {
   return list.map((i) => (i.base ? { name: i.name, qty: i.base } : i));
+}
+
+/** Étapes du carnet pour ce plat, s'il en fait partie. */
+export function carnetSteps(name: string): string[] | undefined {
+  const c = findInCarnet(name);
+  return c ? ETAPES[c.name] : undefined;
 }

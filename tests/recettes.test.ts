@@ -96,3 +96,17 @@ describe('ajuster une recette', () => {
     expect(rescale(ings, 0, 'beaucoup')).toBeUndefined();
   });
 });
+
+import { ETAPES } from '../src/data/carnet-etapes';
+import { carnetSteps } from '../src/data/recettes';
+describe('étapes du carnet', () => {
+  it('chaque plat du carnet a ses étapes, et chaque étape correspond à un plat', () => {
+    const names = new Set(CARNET.map((r) => r.name));
+    for (const r of CARNET) expect(ETAPES[r.name]?.length ?? 0, r.name).toBeGreaterThanOrEqual(2);
+    for (const n of Object.keys(ETAPES)) expect(names.has(n), n).toBe(true);
+  });
+  it('retrouve les étapes d’une recette enregistrée', () => {
+    expect(carnetSteps('Lasagnes')?.[0]).toMatch(/Préchauffer/);
+    expect(carnetSteps('Un plat inventé')).toBeUndefined();
+  });
+});

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { findInCarnet, parseIngredientLine, suggestFromCarnet, type ImportedRecipe, type Ingredient, type NewRecipe, type Recipe } from '../data/recettes';
+import { carnetSteps, findInCarnet, parseIngredientLine, suggestFromCarnet, type ImportedRecipe, type Ingredient, type NewRecipe, type Recipe } from '../data/recettes';
 import type { CarnetRecette } from '../data/carnet';
 import { emojiFor } from '../data/emoji';
 import { CloseIcon } from './Icons';
@@ -23,7 +23,7 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
   // Tant qu'on n'a pas touché aux ingrédients, ils suivent le plat reconnu dans le carnet.
   const [fromCarnet, setFromCarnet] = useState<string | undefined>(editing ? undefined : start?.name);
   const [url, setUrl] = useState(editing?.url ?? '');
-  const [steps, setSteps] = useState((editing?.steps ?? []).join('\n'));
+  const [steps, setSteps] = useState((editing?.steps?.length ? editing.steps : ((editing && carnetSteps(editing.name)) ?? (start && carnetSteps(start.name)) ?? [])).join('\n'));
   const [upcoming, setUpcoming] = useState(editing?.upcoming ?? true);
   const [newIng, setNewIng] = useState('');
   const [link, setLink] = useState('');
@@ -37,7 +37,12 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
 
   const suggestions = !editing && name.trim().length >= 2 && !fromCarnet ? suggestFromCarnet(name) : [];
 
+  const fillSteps = (c?: CarnetRecette) => {
+    const next = c ? carnetSteps(c.name) : undefined;
+    setSteps((cur) => (!cur.trim() || cur === (fromCarnet ? (carnetSteps(fromCarnet) ?? []).join('\n') : '') ? (next ?? []).join('\n') : cur));
+  };
   const pickCarnet = (c: CarnetRecette) => {
+    fillSteps(c);
     setName(c.name);
     setEmoji(c.emoji);
     setIngs(c.ingredients);
@@ -51,11 +56,13 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
     if (!fromCarnet && ings.length > 0) return; // ingrédients choisis à la main : on n'y touche pas
     if (c) {
       if (c.name !== fromCarnet) {
+        fillSteps(c);
         setIngs(c.ingredients);
         setEmoji(c.emoji);
         setFromCarnet(c.name);
       }
     } else if (fromCarnet) {
+      fillSteps(undefined);
       setIngs([]);
       setEmoji('');
       setFromCarnet(undefined);
