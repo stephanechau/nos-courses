@@ -249,6 +249,7 @@ export default function App({ backend }: { backend: Backend }) {
             setView({ kind: 'caveAdd' });
           }}
           onVoice={() => dictate(storeInCave)}
+          onRemove={(it) => backend.cave.remove(it.id).catch(() => say('Impossible de retirer cet objet.'))}
           onToShopping={(it) =>
             addNames([it.name], false).catch((e) => say(`Impossible d’ajouter : ${e instanceof Error ? e.message : 'erreur inconnue'}`))
           }

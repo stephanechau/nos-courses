@@ -17,6 +17,7 @@ interface Props {
   onAdd: () => void;
   onVoice: () => void;
   onToShopping: (item: StockItem) => void;
+  onRemove: (item: StockItem) => void;
   onSettings: () => void;
 }
 
@@ -42,6 +43,7 @@ function QtyNum({ qty, low }: { qty: number; low: boolean }) {
 export function CaveScreen(p: Props) {
   // Tout article à zéro (sauf Divers) propose « Ajouter aux courses », jusqu'à « Non » ou « Ajouter ».
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const [keep, setKeep] = useState<Set<string>>(() => new Set());
   const [added, setAdded] = useState<Set<string>>(() => new Set());
   const without = (s: Set<string>, id: string) => {
     const n = new Set(s);
@@ -132,31 +134,46 @@ export function CaveScreen(p: Props) {
                           p.onQty(it, it.qty + 1);
                           setDismissed((s) => without(s, it.id));
                           setAdded((s) => without(s, it.id));
+                          setKeep((s) => without(s, it.id));
                         }}
                       >
                         +
                       </button>
                     </div>
                   </div>
-                  {it.qty === 0 && !c.durable && !dismissed.has(it.id) && !added.has(it.id) && (
+                  {it.qty === 0 && !keep.has(it.id) && (!c.durable || !(dismissed.has(it.id) || added.has(it.id))) && (
                     <div className="cave-ask">
-                      <span>Plus de {it.name.toLowerCase()}. Ajouter aux courses ?</span>
-                      <button
-                        className="push-on"
-                        onClick={() => {
-                          p.onToShopping(it);
-                          setDismissed((s) => without(s, it.id));
-                          setAdded((s) => new Set(s).add(it.id));
-                        }}
-                      >
-                        Ajouter
-                      </button>
-                      <button className="link-btn" onClick={() => setDismissed((s) => new Set(s).add(it.id))}>
-                        Non
-                      </button>
+                      <strong>Plus de {it.name.toLowerCase()}.</strong>
+                      {!c.durable && !dismissed.has(it.id) && !added.has(it.id) && (
+                        <div className="cave-ask-row">
+                          <span>Ajouter aux courses ?</span>
+                          <button
+                            className="push-on"
+                            onClick={() => {
+                              p.onToShopping(it);
+                              setAdded((s) => new Set(s).add(it.id));
+                            }}
+                          >
+                            Oui
+                          </button>
+                          <button className="link-btn" onClick={() => setDismissed((s) => new Set(s).add(it.id))}>
+                            Non
+                          </button>
+                        </div>
+                      )}
+                      {added.has(it.id) && <span className="cave-added">✓ Ajouté à la liste de courses</span>}
+                      <div className="cave-ask-row">
+                        <span>Le retirer de la cave ?</span>
+                        <button className="push-on" onClick={() => p.onRemove(it)}>
+                          Oui
+                        </button>
+                        <button className="link-btn" onClick={() => setKeep((s) => new Set(s).add(it.id))}>
+                          Non
+                        </button>
+                      </div>
                     </div>
                   )}
-                  {added.has(it.id) && <span className="cave-added">✓ Ajouté à la liste de courses</span>}
+                  {added.has(it.id) && keep.has(it.id) && <span className="cave-added">✓ Ajouté à la liste de courses</span>}
                 </li>
               ))}
             </ul>
