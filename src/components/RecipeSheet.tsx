@@ -121,6 +121,13 @@ export function RecipeSheet({ editing, initialName, importRecipe, onSave, onDele
               className="text-input"
               value={name}
               onChange={(e) => onName(e.target.value)}
+              onKeyDown={(e) => {
+                // Entrée : on garde l'idée tout de suite, on pourra la compléter ensuite.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  save();
+                }
+              }}
               placeholder="Lasagnes, curry, tartiflette…"
               autoComplete="off"
               enterKeyHint="done"
