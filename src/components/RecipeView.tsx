@@ -124,7 +124,7 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
         {r.ingredients.some((i) => splitQty(i.base ?? i.qty)) && (
           <div className="qty-tip">
             {factor === 1 ? (
-              <span>Touchez une quantité pour la changer : tout le reste suit.</span>
+              <span>Touchez une quantité pour la changer et toutes les autres quantités se mettent à jour.</span>
             ) : (
               <>
                 <span>
@@ -177,10 +177,10 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
                   {cave > 0 && <span className="ing-cave">📦 {cave} à la cave</span>}
                 </span>
                 {listed ? (
-                  <span className="ing-add ok">✓ Dans la liste</span>
+                  <span className="ing-add ok">✓ Dans les courses</span>
                 ) : (
-                  <button className="ing-add" onClick={() => onAddOne(i)}>
-                    + Ajouter
+                  <button className="ing-add" onClick={() => onAddOne(i)} aria-label={`Ajouter ${i.name} aux courses`}>
+                    + 🛒 Courses
                   </button>
                 )}
               </li>
