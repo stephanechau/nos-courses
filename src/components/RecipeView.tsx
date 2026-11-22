@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Ingredient, Recipe } from '../data/recettes';
+import { currentFactor, rescale, resetQty, splitQty, type Ingredient, type Recipe } from '../data/recettes';
 import { CloseIcon } from './Icons';
 
 interface Props {
@@ -11,13 +11,29 @@ interface Props {
   onAddOne: (i: Ingredient) => void;
   onAddMany: (list: Ingredient[]) => void;
   onUpcoming: (upcoming: boolean) => void;
+  /** Enregistre des quantités recalculées. */
+  onIngredients: (list: Ingredient[]) => void;
   onEdit: () => void;
   onClose: () => void;
 }
 
 /** Une recette ouverte : ses ingrédients, chacun avec « Ajouter ». */
-export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onUpcoming, onEdit, onClose }: Props) {
+export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onUpcoming, onIngredients, onEdit, onClose }: Props) {
   const [cooked, setCooked] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
+  const [qtyMsg, setQtyMsg] = useState('');
+  const factor = currentFactor(r.ingredients);
+  const commit = () => {
+    if (editing === null) return;
+    const i = editing;
+    setEditing(null);
+    if (!draft.trim() || draft.trim() === r.ingredients[i]?.qty) return;
+    const next = rescale(r.ingredients, i, draft.trim());
+    if (!next) return setQtyMsg('Tapez un nombre, par exemple 800 ou 800 g.');
+    setQtyMsg('');
+    onIngredients(next);
+  };
   const missing = r.ingredients.filter((i) => !inList(i) && inCave(i) === 0);
 
   return (
@@ -61,6 +77,23 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
         </div>
         {cooked && <p className="recipe-note">Rangée dans la bibliothèque. Elle y reste pour la prochaine fois.</p>}
 
+        {r.ingredients.some((i) => splitQty(i.base ?? i.qty)) && (
+          <div className="qty-tip">
+            {factor === 1 ? (
+              <span>Touchez une quantité pour la changer : tout le reste suit.</span>
+            ) : (
+              <>
+                <span>
+                  Quantités × {String(Math.round(factor * 100) / 100).replace('.', ',')} par rapport à la recette d’origine.
+                </span>
+                <button className="rchip ghost" onClick={() => onIngredients(resetQty(r.ingredients))}>
+                  ↺ Revenir à l’origine
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {qtyMsg && <p className="recipe-note">{qtyMsg}</p>}
         <ul className="ing-list">
           {r.ingredients.map((i, k) => {
             const listed = inList(i);
@@ -69,7 +102,34 @@ export function RecipeView({ recipe: r, inList, inCave, onAddOne, onAddMany, onU
               <li key={`${i.name}-${k}`} className="ing-row">
                 <span className="ing-name">
                   {i.name}
-                  {i.qty && <span className="ing-qty"> · {i.qty}</span>}
+                  {editing === k ? (
+                    <input
+                      className="qty-input"
+                      autoFocus
+                      value={draft}
+                      inputMode="decimal"
+                      aria-label={`Quantité de ${i.name}`}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onBlur={commit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commit();
+                        if (e.key === 'Escape') setEditing(null);
+                      }}
+                    />
+                  ) : splitQty(i.qty) ? (
+                    <button
+                      className="qty-btn"
+                      aria-label={`Changer la quantité de ${i.name} (${i.qty})`}
+                      onClick={() => {
+                        setDraft(i.qty ?? '');
+                        setEditing(k);
+                      }}
+                    >
+                      {i.qty}
+                    </button>
+                  ) : (
+                    i.qty && <span className="ing-qty"> · {i.qty}</span>
+                  )}
                   {cave > 0 && <span className="ing-cave">📦 {cave} à la cave</span>}
                 </span>
                 {listed ? (

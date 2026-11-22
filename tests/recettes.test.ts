@@ -52,3 +52,47 @@ describe('lecture des lignes d’ingrédients', () => {
       expect(parseIngredientLine(line)).toEqual({ name, qty });
     });
 });
+
+import { factorFrom, scaleQty } from '../src/data/recettes';
+describe('produit en croix', () => {
+  it('calcule le coefficient', () => {
+    expect(factorFrom('500 g', '800 g')).toBeCloseTo(1.6);
+    expect(factorFrom('500 g', '800')).toBeCloseTo(1.6);
+    expect(factorFrom('1,2 kg', '1,8 kg')).toBeCloseTo(1.5);
+    expect(factorFrom('pincée', '2')).toBeUndefined();
+  });
+  it('arrondit joliment', () => {
+    expect(scaleQty('250 g', 1.6)).toBe('400 g');
+    expect(scaleQty('1', 1.6)).toBe('2');
+    expect(scaleQty('50 cl', 1.6)).toBe('80 cl');
+    expect(scaleQty('3 gousses', 1.6)).toBe('5 gousses');
+    expect(scaleQty('1,2 kg', 1.5)).toBe('1,8 kg');
+    expect(scaleQty('1 pot', 0.5)).toBe('0,5 pot');
+    expect(scaleQty('1 botte', 1.6)).toBe('2 botte');
+    expect(scaleQty('1/2 pot', 2)).toBe('1 pot');
+    expect(scaleQty(undefined, 2)).toBeUndefined();
+    expect(scaleQty('2 c. à soupe', 1.5)).toBe('3 c. à soupe');
+  });
+});
+
+import { currentFactor, rescale, resetQty } from '../src/data/recettes';
+describe('ajuster une recette', () => {
+  const ings = [
+    { name: 'Bœuf haché', qty: '500 g' },
+    { name: 'Pâtes', qty: '250 g' },
+    { name: 'Oignon', qty: '1' },
+    { name: 'Sel' }
+  ];
+  it('recalcule tout à partir d’un ingrédient', () => {
+    const r = rescale(ings, 0, '800')!;
+    expect(r.map((i) => i.qty)).toEqual(['800 g', '400 g', '2', undefined]);
+    expect(currentFactor(r)).toBeCloseTo(1.6);
+    // Un second ajustement repart des quantités d'origine.
+    const r2 = rescale(r, 1, '500 g')!;
+    expect(r2.map((i) => i.qty)).toEqual(['1000 g', '500 g', '2', undefined]);
+    expect(resetQty(r2)).toEqual(ings);
+  });
+  it('refuse une quantité sans nombre', () => {
+    expect(rescale(ings, 0, 'beaucoup')).toBeUndefined();
+  });
+});

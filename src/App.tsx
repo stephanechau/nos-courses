@@ -298,6 +298,7 @@ export default function App({ backend }: { backend: Backend }) {
             onAddOne={(i) => addIngredients([i])}
             onAddMany={addIngredients}
             onUpcoming={(u) => setUpcoming(current, u)}
+            onIngredients={(list) => backend.recettes.update(current.id, { ingredients: list }, me.id).catch(oopsR)}
             onEdit={() => setView({ kind: 'recipeEdit', id: current.id })}
             onClose={() => setView({ kind: 'list' })}
           />
