@@ -57,6 +57,9 @@ export default function App({ backend }: { backend: Backend }) {
   const [caveMissing, setCaveMissing] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [recipesMissing, setRecipesMissing] = useState(false);
+  // Dernière recette supprimée d'un geste, pour « Annuler ».
+  const [deletedRecipe, setDeletedRecipe] = useState<Recipe | null>(null);
+  const deletedTimer = useRef(0);
   const [pushDismissed, setPushDismissed] = useState(() => {
     try {
       return localStorage.getItem(PUSH_DISMISSED) === '1';
@@ -278,7 +281,20 @@ export default function App({ backend }: { backend: Backend }) {
             if (!s) return;
             Promise.all([backend.recettes.update(s.a.id, { position: s.posA }, me.id), backend.recettes.update(s.b.id, { position: s.posB }, me.id)]).catch(oopsR);
           }}
-          onUpcoming={setUpcoming}
+          onUpcoming={(r, u) => {
+            setUpcoming(r, u);
+            say(u ? `« ${r.name} » dans les prochaines recettes` : `« ${r.name} » rangée dans la bibliothèque`);
+          }}
+          onDelete={(r) => {
+            backend.recettes
+              .remove(r.id)
+              .then(() => {
+                setDeletedRecipe(r);
+                window.clearTimeout(deletedTimer.current);
+                deletedTimer.current = window.setTimeout(() => setDeletedRecipe(null), 5000);
+              })
+              .catch(oopsR);
+          }}
           onAdd={() => {
             setToast('');
             setView({ kind: 'recipeAdd' });
@@ -326,6 +342,24 @@ export default function App({ backend }: { backend: Backend }) {
             }
             onClose={() => setView(view.kind === 'recipeEdit' && current ? { kind: 'recipeView', id: current.id } : { kind: 'list' })}
           />
+        )}
+        {deletedRecipe && (
+          <div className="undo-bar" role="status" key={deletedRecipe.id}>
+            <span>
+              {deletedRecipe.emoji} {deletedRecipe.name} supprimée
+            </span>
+            <button
+              onClick={() => {
+                const r = deletedRecipe;
+                setDeletedRecipe(null);
+                backend.recettes
+                  .add({ name: r.name, emoji: r.emoji, ingredients: r.ingredients, url: r.url, upcoming: r.upcoming, steps: r.steps }, me.id)
+                  .catch(oopsR);
+              }}
+            >
+              Annuler
+            </button>
+          </div>
         )}
         {toast && (
           <div className="toast" role="status">

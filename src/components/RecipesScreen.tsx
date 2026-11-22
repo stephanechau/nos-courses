@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import type { Member } from '../data/types';
 import { section, type Recipe } from '../data/recettes';
 import { Avatar, Bubbles } from './ListScreen';
@@ -16,15 +16,84 @@ interface Props {
   onOpen: (r: Recipe) => void;
   onMove: (r: Recipe, dir: -1 | 1) => void;
   onUpcoming: (r: Recipe, upcoming: boolean) => void;
+  onDelete: (r: Recipe) => void;
   onAdd: () => void;
   onVoice: () => void;
   onSettings: () => void;
 }
 
-function Row({ r, first, last, inList, onOpen, onMove, onUpcoming }: { r: Recipe; first: boolean; last: boolean; inList: number } & Pick<Props, 'onOpen' | 'onMove' | 'onUpcoming'>) {
+const SWIPE = 90; // distance (px) à partir de laquelle le geste est validé
+
+function Row({ r, first, last, inList, onOpen, onMove, onUpcoming, onDelete }: { r: Recipe; first: boolean; last: boolean; inList: number } & Pick<Props, 'onOpen' | 'onMove' | 'onUpcoming' | 'onDelete'>) {
   const n = r.ingredients.length;
+  const [dx, setDx] = useState(0);
+  const [leaving, setLeaving] = useState<0 | 1 | -1>(0);
+  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const dragging = useRef(false);
+  const moved = useRef(false);
+
+  const down = (e: RPointerEvent) => {
+    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    dragging.current = false;
+    moved.current = false;
+  };
+  const move = (e: RPointerEvent) => {
+    const s = start.current;
+    if (!s || s.id !== e.pointerId) return;
+    const x = e.clientX - s.x;
+    const y = e.clientY - s.y;
+    if (!dragging.current) {
+      if (Math.abs(x) < 10 || Math.abs(x) < Math.abs(y) * 1.5) {
+        if (Math.abs(y) > 10) start.current = null; // défilement vertical : on laisse faire
+        return;
+      }
+      dragging.current = true;
+      moved.current = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    setDx(x);
+  };
+  const up = () => {
+    const was = dragging.current;
+    start.current = null;
+    dragging.current = false;
+    if (!was) return;
+    if (dx <= -SWIPE) {
+      setLeaving(-1);
+      window.setTimeout(() => onDelete(r), 220);
+    } else if (dx >= SWIPE) {
+      setLeaving(1);
+      window.setTimeout(() => {
+        onUpcoming(r, !r.upcoming);
+        setLeaving(0);
+        setDx(0);
+      }, 220);
+    } else setDx(0);
+  };
+  const shift = leaving ? `${leaving * 110}%` : `${dx}px`;
+  const rightLabel = r.upcoming ? '📚 Bibliothèque' : '🔥 Prochaines';
+
   return (
-    <li className="recipe-row">
+    <li className="recipe-swipe">
+      <div className="swipe-bg" aria-hidden="true">
+        <span className={`swipe-right${dx > 0 || leaving === 1 ? ' on' : ''}${dx >= SWIPE ? ' ready' : ''}`}>{rightLabel}</span>
+        <span className={`swipe-left${dx < 0 || leaving === -1 ? ' on' : ''}${dx <= -SWIPE ? ' ready' : ''}`}>🗑 Supprimer</span>
+      </div>
+    <div
+      className={`recipe-row${dragging.current ? ' dragging' : ''}`}
+      style={{ transform: `translateX(${shift})` }}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+      onClickCapture={(e) => {
+        if (moved.current) {
+          e.stopPropagation();
+          e.preventDefault();
+          moved.current = false;
+        }
+      }}
+    >
       <button className="recipe-main" onClick={() => onOpen(r)} aria-label={`Ouvrir ${r.name}`}>
         <span className="recipe-emoji" aria-hidden="true">
           {r.emoji}
@@ -50,6 +119,7 @@ function Row({ r, first, last, inList, onOpen, onMove, onUpcoming }: { r: Recipe
           ▼
         </button>
       </div>
+    </div>
     </li>
   );
 }
@@ -60,7 +130,7 @@ export function RecipesScreen(p: Props) {
   const rows = (list: Recipe[]) => (
     <ul className="recipe-list">
       {list.map((r, i) => (
-        <Row key={r.id} r={r} first={i === 0} last={i === list.length - 1} inList={p.inList(r)} onOpen={p.onOpen} onMove={p.onMove} onUpcoming={p.onUpcoming} />
+        <Row key={r.id} r={r} first={i === 0} last={i === list.length - 1} inList={p.inList(r)} onOpen={p.onOpen} onMove={p.onMove} onUpcoming={p.onUpcoming} onDelete={p.onDelete} />
       ))}
     </ul>
   );
@@ -128,7 +198,7 @@ export function RecipesScreen(p: Props) {
             {rows(lib)}
           </section>
         )}
-        {p.recipes.length > 0 && <p className="bhint">Touchez une recette pour voir ses ingrédients et les ajouter aux courses.</p>}
+        {p.recipes.length > 0 && <p className="bhint">Touchez une recette pour l’ouvrir. Glissez-la vers la droite pour la ranger, vers la gauche pour la supprimer.</p>}
       </main>
 
       {!p.missing && (

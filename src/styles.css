@@ -368,3 +368,12 @@ button { cursor: pointer; }
 .steps li button.done { opacity: 0.5; }
 .steps li button.done span:last-child { text-decoration: line-through; }
 .step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #ffc94a, #ff7a59); color: #fff; font-weight: 800; font-size: 14px; }
+.recipe-swipe { position: relative; border-radius: 20px; overflow: hidden; }
+.recipe-swipe .recipe-row { position: relative; z-index: 1; touch-action: pan-y; transition: transform 0.22s ease; user-select: none; -webkit-user-select: none; }
+.recipe-swipe .recipe-row.dragging { transition: none; }
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-weight: 800; font-size: 14px; color: #fff; }
+.swipe-bg span { opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+.swipe-bg span.on { opacity: 1; }
+.swipe-bg span.ready { transform: scale(1.12); }
+.swipe-bg:has(.swipe-right.on) { background: #13827c; }
+.swipe-bg:has(.swipe-left.on) { background: #c0392b; }
