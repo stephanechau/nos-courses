@@ -40,8 +40,8 @@ function QtyNum({ qty, low }: { qty: number; low: boolean }) {
 }
 
 export function CaveScreen(p: Props) {
-  // Articles tombés à zéro sur ce téléphone, pour lesquels on propose « Ajouter aux courses ».
-  const [ask, setAsk] = useState<Set<string>>(() => new Set());
+  // Tout article à zéro (sauf Divers) propose « Ajouter aux courses », jusqu'à « Non » ou « Ajouter ».
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [added, setAdded] = useState<Set<string>>(() => new Set());
   const without = (s: Set<string>, id: string) => {
     const n = new Set(s);
@@ -121,7 +121,6 @@ export function CaveScreen(p: Props) {
                         onClick={() => {
                           const q = Math.max(0, it.qty - 1);
                           p.onQty(it, q);
-                          if (q === 0 && !c.durable) setAsk((s) => new Set(s).add(it.id));
                         }}
                       >
                         −
@@ -131,7 +130,7 @@ export function CaveScreen(p: Props) {
                         aria-label={`Un ${it.name} de plus`}
                         onClick={() => {
                           p.onQty(it, it.qty + 1);
-                          setAsk((s) => without(s, it.id));
+                          setDismissed((s) => without(s, it.id));
                           setAdded((s) => without(s, it.id));
                         }}
                       >
@@ -139,20 +138,20 @@ export function CaveScreen(p: Props) {
                       </button>
                     </div>
                   </div>
-                  {ask.has(it.id) && it.qty === 0 && (
+                  {it.qty === 0 && !c.durable && !dismissed.has(it.id) && !added.has(it.id) && (
                     <div className="cave-ask">
                       <span>Plus de {it.name.toLowerCase()}. Ajouter aux courses ?</span>
                       <button
                         className="push-on"
                         onClick={() => {
                           p.onToShopping(it);
-                          setAsk((s) => without(s, it.id));
+                          setDismissed((s) => without(s, it.id));
                           setAdded((s) => new Set(s).add(it.id));
                         }}
                       >
                         Ajouter
                       </button>
-                      <button className="link-btn" onClick={() => setAsk((s) => without(s, it.id))}>
+                      <button className="link-btn" onClick={() => setDismissed((s) => new Set(s).add(it.id))}>
                         Non
                       </button>
                     </div>
