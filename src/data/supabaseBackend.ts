@@ -181,6 +181,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         if (error) throw new Error(error.message);
         refreshItems();
       },
+      async moveTo(id, to, patch) {
+        const { error } = await sb
+          .from('items')
+          .update({ list: to, name: patch.name, rayon: patch.rayon, qty: patch.qty ?? null, note: patch.note ?? null })
+          .eq('id', id);
+        if (error) throw new Error(error.message);
+        refreshItems();
+      },
       async remove(id) {
         const { error } = await sb.from('items').delete().eq('id', id);
         if (error) throw new Error(error.message);

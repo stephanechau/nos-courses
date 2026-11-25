@@ -38,6 +38,8 @@ export interface ListStore {
   setDone(id: string, done: boolean, by: string): Promise<void>;
   update(id: string, patch: Partial<NewItem>): Promise<void>;
   remove(id: string): Promise<void>;
+  /** Change l'article de liste (courses ↔ magasin chinois), avec ses modifications. Absent en mode test. */
+  moveTo?(id: string, list: string, patch: NewItem): Promise<void>;
   clearDone(): Promise<void>;
   /** Noms déjà achetés, pour les suggestions. */
   history(): string[];

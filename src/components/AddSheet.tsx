@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Item, NewItem } from '../data/types';
 import { normalize } from '../data/rayons';
-import type { ListKind } from '../data/lists';
+import { LISTS, type ListId, type ListKind } from '../data/lists';
 import { listenOnce, speechAvailable } from '../data/speech';
 import { CartIcon, CloseIcon, MicIcon } from './Icons';
 
@@ -13,7 +13,8 @@ interface Props {
   /** Ouvre la recherche Carrefour pour cet article (liste de courses seulement). */
   onCarrefour?: (name: string) => void;
   history: string[];
-  onSave: (item: NewItem) => void;
+  /** list : la liste choisie (différente de kind.id si on déplace l'article). */
+  onSave: (item: NewItem, list: ListId) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -32,12 +33,14 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
   const [unit, setUnit] = useState(init.unit);
   const [note, setNote] = useState(editing?.note ?? '');
   const [voice, setVoice] = useState(!!editing?.voice);
+  const [listId, setListId] = useState<ListId>(kind.id);
+  const active = LISTS[listId];
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => input.current?.focus(), []);
   const rayonsRef = useRef<HTMLDivElement>(null);
 
-  const autoRayon = kind.guess(name);
+  const autoRayon = active.guess(name);
   const shownRayon = rayon ?? autoRayon;
   // Fait défiler la rangée jusqu'au rayon choisi.
   useEffect(() => {
@@ -64,7 +67,7 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
   const save = () => {
     if (!name.trim()) return;
     const qty = n > 0 ? (unit === 'pièce' ? `×${n}` : `${n} ${unit}`) : undefined;
-    onSave({ name: name.trim(), rayon: shownRayon, qty, note: note.trim() || undefined, voice });
+    onSave({ name: name.trim(), rayon: shownRayon, qty, note: note.trim() || undefined, voice }, listId);
   };
 
   return (
@@ -118,12 +121,37 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
             )}
           </div>
 
+          {editing && (
+            <div>
+              <p className="field-label">
+                Liste {listId !== kind.id && <small>l’article va changer de liste</small>}
+              </p>
+              <div className="list-pick" role="group" aria-label="Liste">
+                {(Object.values(LISTS) as ListKind[]).map((l) => (
+                  <button
+                    type="button"
+                    key={l.id}
+                    className="pill"
+                    aria-pressed={l.id === listId}
+                    onClick={() => {
+                      if (l.id === listId) return;
+                      setListId(l.id);
+                      setRayon(null); // les rayons ne sont pas les mêmes : on repart sur le choix automatique
+                    }}
+                  >
+                    <span aria-hidden="true">{l.id === 'chinois' ? '🥢' : '🛒'}</span> {l.id === 'chinois' ? 'Magasin chinois' : 'Courses'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="field-label">
               Rayon <small>{rayon ? 'choisi à la main' : 'choisi automatiquement'}</small>
             </p>
             <div className="rayons" role="group" aria-label="Rayon" ref={rayonsRef}>
-              {kind.rayons.map((r) => {
+              {active.rayons.map((r) => {
                 const on = r.id === shownRayon;
                 return (
                   <button

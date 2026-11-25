@@ -435,9 +435,18 @@ export default function App({ backend }: { backend: Backend }) {
   const listItems = listId === 'chinois' ? chinoisItems : items;
   const oops = (e: unknown) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
 
-  const save = async (data: NewItem) => {
+  const save = async (data: NewItem, to: ListId) => {
     try {
-      if (view.kind === 'edit') await store.update(view.item.id, data);
+      if (view.kind === 'edit' && to !== listId) {
+        const item = view.item;
+        if (store.moveTo) await store.moveTo(item.id, to, data);
+        else {
+          // Mode test : chaque liste a son propre stockage.
+          await (to === 'chinois' ? backend.chinois : backend.store).add(data, item.addedBy);
+          await store.remove(item.id);
+        }
+        say(`« ${data.name} » déplacé vers ${to === 'chinois' ? 'Magasin chinois' : 'Courses'}`);
+      } else if (view.kind === 'edit') await store.update(view.item.id, data);
       else {
         await store.add(data, me.id);
         say(`« ${data.name} » ajouté`);

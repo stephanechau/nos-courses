@@ -379,3 +379,7 @@ button { cursor: pointer; }
 .swipe-bg span.ready { transform: scale(1.12); }
 .swipe-bg:has(.swipe-right.on) { background: #13827c; }
 .swipe-bg:has(.swipe-left.on) { background: #c0392b; }
+
+/* Fiche article : changer de liste */
+.list-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.list-pick .pill[aria-pressed='true'] { background: var(--accent); color: #fff; border-color: var(--accent); }
