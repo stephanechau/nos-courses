@@ -14,7 +14,9 @@ interface Props {
   onCarrefour?: (name: string) => void;
   history: string[];
   /** list : la liste choisie (différente de kind.id si on déplace l'article). */
-  onSave: (item: NewItem, list: ListId) => void;
+  onSave: (item: NewItem, list: ListId, manual: boolean) => void;
+  /** Rayon retenu pour la famille pour cet article, s'il y en a un. */
+  remembered?: (list: ListId, name: string) => string | undefined;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -25,10 +27,15 @@ function splitQty(qty?: string): { n: number; unit: string } {
   return { n: Number(m[1]), unit: m[2] || 'pièce' };
 }
 
-export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete, onClose }: Props) {
+export function AddSheet({ kind, editing, onCarrefour, history, onSave, remembered, onDelete, onClose }: Props) {
   const init = splitQty(editing?.qty);
   const [name, setName] = useState(editing?.name ?? '');
-  const [rayon, setRayon] = useState<string | null>(editing?.rayon ?? null); // null = automatique
+  // null = automatique (ou retenu pour la famille) ; un rayon = choisi à la main.
+  const [rayon, setRayon] = useState<string | null>(() => {
+    if (!editing) return null;
+    const auto = remembered?.(kind.id, editing.name) ?? kind.guess(editing.name);
+    return editing.rayon === auto ? null : editing.rayon;
+  });
   const [n, setN] = useState(init.n);
   const [unit, setUnit] = useState(init.unit);
   const [note, setNote] = useState(editing?.note ?? '');
@@ -40,7 +47,8 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
   useEffect(() => input.current?.focus(), []);
   const rayonsRef = useRef<HTMLDivElement>(null);
 
-  const autoRayon = active.guess(name);
+  const memoRayon = remembered?.(listId, name);
+  const autoRayon = memoRayon ?? active.guess(name);
   const shownRayon = rayon ?? autoRayon;
   // Fait défiler la rangée jusqu'au rayon choisi.
   useEffect(() => {
@@ -67,7 +75,7 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
   const save = () => {
     if (!name.trim()) return;
     const qty = n > 0 ? (unit === 'pièce' ? `×${n}` : `${n} ${unit}`) : undefined;
-    onSave({ name: name.trim(), rayon: shownRayon, qty, note: note.trim() || undefined, voice }, listId);
+    onSave({ name: name.trim(), rayon: shownRayon, qty, note: note.trim() || undefined, voice }, listId, rayon !== null);
   };
 
   return (
@@ -148,7 +156,7 @@ export function AddSheet({ kind, editing, onCarrefour, history, onSave, onDelete
 
           <div>
             <p className="field-label">
-              Rayon <small>{rayon ? 'choisi à la main' : 'choisi automatiquement'}</small>
+              Rayon <small>{rayon ? 'choisi à la main, retenu pour la famille' : memoRayon ? 'retenu pour la famille' : 'choisi automatiquement'}</small>
             </p>
             <div className="rayons" role="group" aria-label="Rayon" ref={rayonsRef}>
               {active.rayons.map((r) => {

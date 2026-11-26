@@ -7,6 +7,7 @@ import { normalize } from './rayons';
 import { pushStatus, subscribePush, unsubscribePush } from './push';
 import type { CaveCat, CaveStore, StockItem } from './cave';
 import type { ImportedRecipe, Ingredient, Recipe, RecipeStore } from './recettes';
+import { memoKey, type MemoStore, type RayonMemo } from './memo';
 
 interface ItemRow {
   id: string;
@@ -390,11 +391,46 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     }
   };
 
+  const memoRefreshers = new Set<() => void>();
+  const memo: MemoStore = {
+    subscribe(cb) {
+      const refresh = async () => {
+        const { data, error } = await sb.from('rayon_memo').select('list, name, rayon');
+        if (error) return; // table pas encore installée : on garde le choix automatique
+        const m: RayonMemo = {};
+        for (const r of (data ?? []) as { list: string; name: string; rayon: string }[]) m[memoKey(r.list, r.name)] = r.rayon;
+        cb(m);
+      };
+      refresh();
+      const channel = sb
+        .channel('rayon-memo')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'rayon_memo', filter: `family_id=eq.${familyId}` }, refresh)
+        .subscribe();
+      memoRefreshers.add(refresh);
+      const onVisible = () => document.visibilityState === 'visible' && refresh();
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        memoRefreshers.delete(refresh);
+        sb.removeChannel(channel);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
+    },
+    async remember(list, name, rayon) {
+      if (!familyId) return;
+      const { error } = await sb
+        .from('rayon_memo')
+        .upsert({ family_id: familyId, list, name: normalize(name), rayon, updated_at: now() }, { onConflict: 'family_id,list,name' });
+      if (error) return; // pas grave : le rayon de cet article est quand même enregistré
+      memoRefreshers.forEach((f) => f());
+    }
+  };
+
   return {
     store,
     chinois,
     cave,
     recettes,
+    memo,
     async importRecipe(link: string): Promise<ImportedRecipe> {
       const { data, error } = await sb.functions.invoke('recette', { body: { url: link } });
       if (error) {

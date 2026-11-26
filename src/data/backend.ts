@@ -2,6 +2,7 @@ import type { ListStore, Member, NotificationPrefs } from './types';
 import { createLocalStore } from './localStore';
 import { createLocalCave, type CaveStore } from './cave';
 import { createLocalRecipes, type ImportedRecipe, type RecipeStore } from './recettes';
+import { createLocalMemo, type MemoStore } from './memo';
 
 /** Ce que l'app attend du service en ligne (Supabase) ou du mode test local. */
 export interface Backend {
@@ -12,6 +13,8 @@ export interface Backend {
   cave: CaveStore;
   /** Les idées de plats. */
   recettes: RecipeStore;
+  /** Rayons choisis à la main, retenus pour toute la famille. */
+  memo: MemoStore;
   /** Lit les ingrédients d'une page de recette (absent en mode test). */
   importRecipe?(url: string): Promise<ImportedRecipe>;
   /** Appelé avec le membre connecté, ou null s'il faut se connecter. */
@@ -69,6 +72,7 @@ export function createLocalBackend(): Backend {
     chinois: createLocalStore('nos-courses:chinois'),
     cave: createLocalCave(),
     recettes: createLocalRecipes(),
+    memo: createLocalMemo(),
     onSession(cb) {
       sessionCbs.add(cb);
       cb(get<Member | null>(ME, null));

@@ -18,6 +18,7 @@ import { RecipeSheet } from './components/RecipeSheet';
 import { RecipeView } from './components/RecipeView';
 import { sameFood, swapTarget, type Ingredient, type NewRecipe, type Recipe } from './data/recettes';
 import { VoiceSetup } from './components/VoiceSetup';
+import { memoKey, type RayonMemo } from './data/memo';
 
 type View = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: Item } | { kind: 'settings' } | { kind: 'voice' } | { kind: 'carrefour'; items: Item[] } | { kind: 'caveAdd' } | { kind: 'caveEdit'; item: StockItem } | { kind: 'recipeAdd'; name?: string } | { kind: 'recipeEdit'; id: string } | { kind: 'recipeView'; id: string };
 
@@ -27,6 +28,7 @@ const TAB_KEY = 'nos-courses:onglet';
 export default function App({ backend }: { backend: Backend }) {
   const [me, setMe] = useState<Member | null | undefined>(undefined); // undefined = chargement
   const [members, setMembers] = useState<Member[]>([]);
+  const [memo, setMemo] = useState<RayonMemo>({});
   const [items, setItems] = useState<Item[]>([]);
   const [chinoisItems, setChinoisItems] = useState<Item[]>([]);
   const [chinoisMissing, setChinoisMissing] = useState(false);
@@ -104,6 +106,7 @@ export default function App({ backend }: { backend: Backend }) {
       () => setRecipesMissing(true)
     );
     backend.getPrefs().then(setPrefs);
+    const stopMemo = backend.memo.subscribe(setMemo);
     backend.invitation().then((i) => setFamilyCode(i?.code)).catch(() => {});
     backend
       .pushStatus()
@@ -115,17 +118,27 @@ export default function App({ backend }: { backend: Backend }) {
       offMembers();
       offCave();
       offRecipes();
+      stopMemo();
     };
   }, [backend, me]);
+
+  // Rayon retenu pour la famille (choisi à la main un jour), sinon le choix automatique.
+  const memoRef = useRef(memo);
+  memoRef.current = memo;
+  const remembered = useCallback((list: ListId, name: string) => {
+    const r = memoRef.current[memoKey(list, name)];
+    return r && LISTS[list].rayons.some((x) => x.id === r) ? r : undefined;
+  }, []);
+  const guessFor = useCallback((list: ListId, name: string) => remembered(list, name) ?? LISTS[list].guess(name), [remembered]);
 
   const addNames = useCallback(
     async (names: string[], voice: boolean, list: ListId = 'courses') => {
       if (!me || names.length === 0) return;
       const store = list === 'chinois' ? backend.chinois : backend.store;
-      for (const name of names) await store.add({ name, rayon: LISTS[list].guess(name), voice }, me.id);
+      for (const name of names) await store.add({ name, rayon: guessFor(list, name), voice }, me.id);
       say(names.length === 1 ? `« ${names[0]} » ajouté` : `${names.length} articles ajoutés : ${names.join(', ')}`);
     },
-    [backend, me, say]
+    [backend, me, say, guessFor]
   );
 
   const dictate = useCallback(async (handle: (names: string[]) => Promise<void>) => {
@@ -242,7 +255,7 @@ export default function App({ backend }: { backend: Backend }) {
     const inCave = (i: Ingredient) => stock.find((s) => s.qty > 0 && sameFood(s.name, i.name))?.qty ?? 0;
     const addIngredients = async (list: Ingredient[]) => {
       try {
-        for (const i of list) await backend.store.add({ name: i.name, rayon: LISTS.courses.guess(i.name), qty: i.qty }, me.id);
+        for (const i of list) await backend.store.add({ name: i.name, rayon: guessFor('courses', i.name), qty: i.qty }, me.id);
         say(list.length === 1 ? `« ${list[0].name} » ajouté aux courses` : `${list.length} ingrédients ajoutés aux courses`);
       } catch (e) {
         say(`Impossible d’ajouter : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
@@ -435,8 +448,9 @@ export default function App({ backend }: { backend: Backend }) {
   const listItems = listId === 'chinois' ? chinoisItems : items;
   const oops = (e: unknown) => say(`Impossible : ${e instanceof Error ? e.message : 'erreur inconnue'}`);
 
-  const save = async (data: NewItem, to: ListId) => {
+  const save = async (data: NewItem, to: ListId, manual: boolean) => {
     try {
+      if (manual) backend.memo.remember(to, data.name, data.rayon).catch(() => {});
       if (view.kind === 'edit' && to !== listId) {
         const item = view.item;
         if (store.moveTo) await store.moveTo(item.id, to, data);
@@ -514,6 +528,7 @@ export default function App({ backend }: { backend: Backend }) {
           onCarrefour={kind.carrefour ? openCarrefour : undefined}
           history={store.history()}
           onSave={save}
+          remembered={remembered}
           onDelete={
             view.kind === 'edit'
               ? async () => {
